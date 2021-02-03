@@ -18,7 +18,7 @@
  *
  */
 
-const HDWalletProvider = require('truffle-hdwallet-provider');
+const HDWalletProvider = require('@truffle/hdwallet-provider');
 const MNEMONIC = process.env.MNEMONIC;
 const INFURA_KEY = process.env.INFURA_KEY;
 
@@ -50,10 +50,16 @@ module.exports = {
     // tab if you use this network and you must also set the `host`, `port` and `network_id`
     // options below to some value.
     development: {
-      host: 'localhost',
-      port: 7545,
-      gas: 4600000,
-      network_id: '*' // Match any network id
+        host: 'localhost',
+        port: 7545,
+        gas: 6721975,
+        network_id: '*' // Match any network id
+    },
+
+    development2: {
+        host: 'localhost',
+        port: 8545,
+        network_id: '*'
     },
     
     rinkeby: {
@@ -64,10 +70,11 @@ module.exports = {
         );
       },
       network_id: "*",
-      gas: 4600000
+      gas: 8000000,
+      gasPrice: 95000000000//95000000000
     },
 
-    live: {
+    mainnet: {
       network_id: 1,
       provider: function() {
         return new HDWalletProvider(
@@ -75,8 +82,9 @@ module.exports = {
           "https://mainnet.infura.io/v3/" + INFURA_KEY
         );
       },
-      gas: 4000000,
-      gasPrice: 20000000000
+      gas: 8000000,
+      gasPrice: 95000000000
+      //gasPrice:  20000000000
     }
   },
 
@@ -92,7 +100,7 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.5.12"
+      version: "0.6.12"
       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
       // settings: {          // See the solidity docs for advice about optimization and evmVersion
       //  optimizer: {
