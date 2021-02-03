@@ -63,6 +63,18 @@ contract TilePack is ITilePack, Ownable, Pausable, ReentrancyGuard, TileFactory 
   // MAIN FUNCTIONS
   //////
 
+  function unpack(
+    uint256 _sceneId,
+    address _toAddress,
+    uint256 _amount
+  ) external {
+    // This will underflow if msg.sender does not own enough tokens.
+    _burn(msg.sender, _sceneId, _amount);
+
+    // Mint nfts contained by this scene pack.
+    _mint(_sceneId, _toAddress, _amount, "");
+  }
+
   /**
    * @dev Open a pack manually and send what's inside to _toAddress
    * Convenience method for contract owner.
@@ -146,16 +158,14 @@ contract TilePack is ITilePack, Ownable, Pausable, ReentrancyGuard, TileFactory 
     // sceneTokens contains all available tokens for this scene - which is just
     // a big old lise of P * H * W tiles each of which has appropriate metadata
     // setup etc. We blindly grab from this list.
-    uint256 numTiles = scenes[_sceneId].numPuzzles.mul(
-                          scenes[_sceneId].tilesWide.mul(
-                            scenes[_sceneId].tilesHigh));
-    uint256 idx = _random().mod(numTiles);
+    uint256 numTiles = scenes[_sceneId].tilesWide.mul(scenes[_sceneId].tilesHigh);
+    uint p = _random().mod(scenes[_sceneId].numPuzzles);
+    uint i = _random().mod(numTiles);
 
     Tile nftContract = Tile(nftAddress);
-    nftContract.mint(_toAddress, sceneTokens[_sceneId][idx], _amount, "");
-    return sceneTokens[_sceneId][idx];
+    nftContract.mint(_toAddress, sceneTokens[_sceneId][p][i], _amount, "");
+    return sceneTokens[_sceneId][p][i];
   }
-
 
   /**
    * @dev Pseudo-random number generator

@@ -108,19 +108,13 @@ const compareTokenTotals = (totals, spec, option) => {
 
 contract("TilePack", (accounts) => {
   // As set in (or inferred from) the contract
-  const BASIC = toBN(0);
-  const PREMIUM = toBN(1);
-  const GOLD = toBN(2);
-  const OPTIONS = [BASIC, PREMIUM, GOLD];
-  const NUM_OPTIONS = OPTIONS.length;
-  const NO_SUCH_OPTION = toBN(NUM_OPTIONS + 100000);
-  const OPTIONS_AMOUNTS = [toBN(3), toBN(5), toBN(7)];
-  const OPTION_GUARANTEES = [
-    {},
-    { 0: toBN(3) },
-    { 0: toBN(3), 2: toBN(2), 4: toBN(1) }
-  ];
-
+  // As set in (or inferred from) the contract
+  const SCENE_BASIC = 0;
+  const SCENE_0 = 1;
+  const SCENE_1 = 2;
+  const NUM_OPTIONS = 3;
+  const NO_SUCH_SCENE = NUM_OPTIONS + 10;
+  
   const owner = accounts[0];
   const userA = accounts[1];
   const userB = accounts[2];
@@ -153,30 +147,41 @@ contract("TilePack", (accounts) => {
   // Calls _mint()
 
   describe('#safeTransferFrom()', () => {
-    // it('should work for owner()', async () => {
-    //   const option = BASIC;
-    //   const amount = toBN(1);
-    //   const receipt = await mTilePack.safeTransferFrom(
-    //     vals.ADDRESS_ZERO,
-    //     userB,
-    //     option,
-    //     amount,
-    //     "0x0",
-    //     { from: owner }
-    //   );
-    //   truffleAssert.eventEmitted(
-    //     receipt,
-    //     'LootBoxOpened',
-    //     {
-    //       boxesPurchased: amount,
-    //       optionId: option,
-    //       buyer: userB,
-    //       itemsMinted: OPTIONS_AMOUNTS[option]
-    //     }
-    //   );
-    //   const totals = totalEventTokens(receipt, userB);
-    //   assert.ok(totals.total.eq(OPTIONS_AMOUNTS[option]));
-    // });
+    it("make a scene", async () => {
+      const packSize = 4;
+      const tileH = 2;
+      const tileW = 3;
+      const cost = web3.utils.toWei("10", "finney");
+      await mTilePack.makeScene(SCENE_0, packSize, cost, tileW, tileH);
+    });
+
+    it("should add puzzles to a scene x4", async () => {
+      await mTilePack.addScenePuzzles(SCENE_0, 4);
+    });
+
+    it('should work for owner()', async () => {
+      const option = SCENE_0;
+      const amount = toBN(1);
+      const receipt = await mTilePack.safeTransferFrom(
+        vals.ADDRESS_ZERO,
+        userB,
+        SCENE_0,
+        amount,
+        "0x0",
+        { from: owner }
+      );
+
+      const totals = totalEventTokens(receipt, userB);
+      
+      truffleAssert.eventEmitted(
+        receipt,
+        "TilePackOpened", (ev) => {
+            return ev.sceneId.eq(toBN(SCENE_0)) &&
+                   ev.packsPurchased.eq(toBN(1)) &&
+                   ev.itemsMinted.eq(toBN(4));
+        }
+      );
+    });
 
     // it('should work for proxy', async () => {
     //   const option = BASIC;
@@ -225,7 +230,7 @@ contract("TilePack", (accounts) => {
         mTilePack.safeTransferFrom(
           vals.ADDRESS_ZERO,
           userB,
-          NO_SUCH_OPTION,
+          NO_SUCH_SCENE,
           amount,
           "0x0",
           { from: owner }

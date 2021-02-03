@@ -23,25 +23,25 @@ const toBN = web3.utils.toBN;
 
 /* NOTE:
    * We rely on the accident of collectible token IDs starting at 1, and mint
-     our PREMIUM token first to make option ID match token ID for PREMIUM and
-     GOLD.
-   * We never mint BASIC tokens, as there is no zero token ID in the
+     our SCENE_0 token first to make option ID match token ID for SCENE_0 and
+     SCENE_1.
+   * We never mint SCENE_BASIC tokens, as there is no zero token ID in the
      collectible.
-   * For testing paths that must work if no token has been minted, use BASIC.
-   * We mint PREMIUM and GOLD while testing mint().
+   * For testing paths that must work if no token has been minted, use SCENE_BASIC.
+   * We mint SCENE_0 and SCENE_1 while testing mint().
    * Therefore any tests that must work with and without tokens minted, use
-     BASIC for unminted and PREMIUM for minted, *after* mint() is tested.
-   * Do not test transferFrom() with BASIC as that would create the token as 3.
+     SCENE_BASIC for unminted and SCENE_0 for minted, *after* mint() is tested.
+   * Do not test transferFrom() with SCENE_BASIC as that would create the token as 3.
      transferFrom() uses _create, which is tested in create(), so this is fine.
 */
 
 contract("TileFactory", (accounts) => {
   // As set in (or inferred from) the contract
-  const BASIC = 0;
-  const PREMIUM =1;
-  const GOLD = 2;
+  const SCENE_BASIC = 0;
+  const SCENE_0 = 1;
+  const SCENE_1 = 2;
   const NUM_OPTIONS = 3;
-  const NO_SUCH_OPTION = NUM_OPTIONS + 10;
+  const NO_SUCH_SCENE = NUM_OPTIONS + 10;
   
   const owner = accounts[0];
   const userA = accounts[1];
@@ -113,28 +113,63 @@ contract("TileFactory", (accounts) => {
   //      mint tokens that we rely on the existence of in later tests here.
 
   // TODO: Re-enable mint()
-//   describe('#mint()', () => {
-//     it('should not allow non-owner or non-operator to mint', async () => {
-//       await truffleAssert.fails(
-//         myFactory.mint(PREMIUM, userA, 1000, "0x0", { from: userA }),
-//         truffleAssert.ErrorType.revert,
-//         'TileFactory#_mint: CANNOT_MINT_MORE'
-//       );
-//     });
+  describe('#mint()', () => {
+    it('unmade scenes should not be mintable', async () => {
+      const quantity = toBN(10);
+      await truffleAssert.fails(
+                myFactory.mint(SCENE_0, userA, quantity, "0x0", { from: owner }),
+                truffleAssert.ErrorType.revert);
+    });
+    
+    it("should make a scene", async () => {
+      const packSize = 4;
+      const tileH = 2;
+      const tileW = 2;
+      const cost = web3.utils.toWei("10", "finney");
+      await myFactory.makeScene(SCENE_0, packSize, cost, tileW, tileH);
+    });
 
-//     it('should allow owner to mint', async () => {
-//       const quantity = toBN(1000);
-//       await myFactory.mint(PREMIUM, userA, quantity, "0x0", { from: owner });
-//       // Check that the recipient got the correct quantity
-//       const balanceUserA = await myCollectible.balanceOf(userA, PREMIUM);
-//       assert.isOk(balanceUserA.eq(quantity));
-//       // Check that balance is correct
-//       const balanceOf = await myFactory.balanceOf(owner, PREMIUM);
-//       assert.isOk(balanceOf.eq(vals.MAX_UINT256_BN.sub(quantity)));
-//       // Check that total supply is correct
-//       const totalSupply = await myCollectible.totalSupply(PREMIUM);
-//       assert.isOk(totalSupply.eq(quantity));
-//     });
+    it("should add puzzles to a scene x4", async () => {
+      await myFactory.addScenePuzzles(SCENE_0, 4);
+    });
+
+    it("should allow owner to mint", async () => {
+      const quantity = toBN(10);
+      await myFactory.mint(SCENE_0, userA, quantity, "0x0", { from: owner });
+
+      // Check that the recipient got the correct quantity
+      const balanceUserA = await myCollectible.balanceOf(userA, SCENE_0);
+      assert.isOk(balanceUserA.eq(quantity));
+
+      // Check that balance is correct
+      const balanceOf = await myFactory.balanceOf(owner, SCENE_0);
+      assert.isOk(balanceOf.eq(toBN(9990)));
+
+      // Check that total supply is correct
+      const totalSupply = await myCollectible.totalSupply(SCENE_0);
+      assert.isOk(totalSupply.eq(quantity));
+    });
+
+    it('should be purchaseable by user', async () => {
+      const option = SCENE_0;
+      const amount = toBN(1);
+      const cost = web3.utils.toWei("10", "finney");
+      const receipt = await myFactory.buyScenePack(SCENE_0, 1, 
+                                                   {from: userB, value: cost});
+      const balanceOf = await myFactory.balanceOf(userB, SCENE_0);
+      console.log(balanceOf);
+      assert.isOk(balanceOf.eq(toBN(1)));
+    });
+
+    // it('should be openable by user', async () => {
+    //     const option = SCENE_0;
+    //     const amount = toBN(1);
+    //     const cost = web3.utils.toWei("10", "finney");
+    //     const receipt = await myFactory.buyScenePack(SCENE_0, 1, 
+    //                                                  {from: userB, value: cost});
+    //     const balanceOf = await myFactory.balanceOf(userB, SCENE_0);
+    //     assert.isOk(balanceOf.eq(toBN(1)));
+    //   });
 
 //     it('should successfully use both create or mint internally', async () => {
 //       const quantity = toBN(1000);
@@ -142,16 +177,16 @@ contract("TileFactory", (accounts) => {
 //       // It would be nice to check the logs from these, but:
 //       // https://ethereum.stackexchange.com/questions/71785/how-to-test-events-that-were-sent-by-inner-transaction-delegate-call
 //       // Will use create.
-//       await myFactory.mint(GOLD, userA, quantity, "0x0", { from: owner });
+//       await myFactory.mint(SCENE_1, userA, quantity, "0x0", { from: owner });
 //       // Will use mint
-//       await myFactory.mint(GOLD, userB, quantity, "0x0", { from: owner });
+//       await myFactory.mint(SCENE_1, userB, quantity, "0x0", { from: owner });
 //       // Check that the recipients got the correct quantity
-//       const balanceUserA = await myCollectible.balanceOf(userA, GOLD);
+//       const balanceUserA = await myCollectible.balanceOf(userA, SCENE_1);
 //       assert.isOk(balanceUserA.eq(quantity));
-//       const balanceUserB = await myCollectible.balanceOf(userB, GOLD);
+//       const balanceUserB = await myCollectible.balanceOf(userB, SCENE_1);
 //       assert.isOk(balanceUserB.eq(quantity));
 //       // Check that balance is correct
-//       const balanceOf = await myFactory.balanceOf(owner, GOLD);
+//       const balanceOf = await myFactory.balanceOf(owner, SCENE_1);
 //       assert.isOk(balanceOf.eq(vals.MAX_UINT256_BN.sub(total)));
 //       // Check that total supply is correct
 //       const totalSupply1 = await myCollectible.totalSupply(2);
@@ -163,42 +198,42 @@ contract("TileFactory", (accounts) => {
 //       //FIXME: move all quantities to top level constants
 //       const total = toBN(1100);
 //       await myFactory.mint(
-//         PREMIUM,
+//         SCENE_0,
 //         userA,
 //         quantity,
 //         "0x0",
 //         { from: proxyForOwner }
 //       );
 //       // Check that the recipient got the correct quantity
-//       const balanceUserA = await myCollectible.balanceOf(userA, PREMIUM);
+//       const balanceUserA = await myCollectible.balanceOf(userA, SCENE_0);
 //       assert.isOk(balanceUserA.eq(total));
 //       // Check that balance is correct
-//       const balanceOf = await myFactory.balanceOf(owner, PREMIUM);
+//       const balanceOf = await myFactory.balanceOf(owner, SCENE_0);
 //       assert.isOk(balanceOf.eq(vals.MAX_UINT256_BN.sub(total)));
 //       // Check that total supply is correct
-//       const totalSupply = await myCollectible.totalSupply(PREMIUM);
+//       const totalSupply = await myCollectible.totalSupply(SCENE_0);
 //       assert.isOk(totalSupply.eq(total));
 //     });
-//   });
+  });
 
   describe('#canMint()', () => {
     it('should return false for zero _amount', async () => {
-      assert.isNotOk(await myFactory.canMint(BASIC, 0, { from: userA }));
-      assert.isNotOk(await myFactory.canMint(BASIC, 0, { from: owner }));
+      assert.isNotOk(await myFactory.canMint(SCENE_BASIC, 0, { from: userA }));
+      assert.isNotOk(await myFactory.canMint(SCENE_BASIC, 0, { from: owner }));
       assert.isNotOk(
-        await myFactory.canMint(BASIC, 0, { from: proxyForOwner })
+        await myFactory.canMint(SCENE_BASIC, 0, { from: proxyForOwner })
       );
     });
 
     it('should return false for non-owner and non-proxy', async () => {
-      assert.isNotOk(await myFactory.canMint(BASIC, 100, { from: userA }));
+      assert.isNotOk(await myFactory.canMint(SCENE_BASIC, 100, { from: userA }));
     });
 
   });
 
 //   describe('#uri()', () => {
 //     it('should return the correct uri for an option', async () =>
-//       assert.equal(await myFactory.uri(BASIC), `${vals.URI_BASE}factory/0`)
+//       assert.equal(await myFactory.uri(SCENE_BASIC), `${vals.URI_BASE}factory/0`)
 //       );
 
 //     it('should format any number as an option uri', async () =>
@@ -212,14 +247,14 @@ contract("TileFactory", (accounts) => {
     // it('should return 0 for un-minted token', async () => {
     //   const balanceProxy = await myFactory.balanceOf(
     //     proxyForOwner,
-    //     NO_SUCH_OPTION
+    //     NO_SUCH_SCENE
     //   );
     //   assert.isOk(balanceProxy.eq(0));
     // });
 
     it('should return zero for non-owner or non-proxy', async () => {
-      assert.isOk((await myFactory.balanceOf(userA, BASIC)).eq(toBN(0)));
-      assert.isOk((await myFactory.balanceOf(userB, GOLD)).eq(toBN(0)));
+      assert.isOk((await myFactory.balanceOf(userA, SCENE_BASIC)).eq(toBN(0)));
+      assert.isOk((await myFactory.balanceOf(userB, SCENE_1)).eq(toBN(0)));
     });
   });
 
@@ -232,30 +267,30 @@ contract("TileFactory", (accounts) => {
   describe('#safeTransferFrom()', () => {
     // it('should work for owner()', async () => {
     //   const amount = toBN(100);
-    //   const userBBalance = await myCollectible.balanceOf(userB, PREMIUM);
+    //   const userBBalance = await myCollectible.balanceOf(userB, SCENE_0);
     //   await myFactory.safeTransferFrom(
     //     vals.ADDRESS_ZERO,
     //     userB,
-    //     PREMIUM,
+    //     SCENE_0,
     //     amount,
     //     "0x0"
     //   );
-    //   const newUserBBalance = await myCollectible.balanceOf(userB, PREMIUM);
+    //   const newUserBBalance = await myCollectible.balanceOf(userB, SCENE_0);
     //   assert.isOk(newUserBBalance.eq(userBBalance.add(amount)));
     // });
 
     // it('should work for proxy', async () => {
     //   const amount = toBN(100);
-    //   const userBBalance = await myCollectible.balanceOf(userB, PREMIUM);
+    //   const userBBalance = await myCollectible.balanceOf(userB, SCENE_0);
     //   await myFactory.safeTransferFrom(
     //     vals.ADDRESS_ZERO,
     //     userB,
-    //     PREMIUM,
+    //     SCENE_0,
     //     100,
     //     "0x0",
     //     { from: proxyForOwner }
     //   );
-    //   const newUserBBalance = await myCollectible.balanceOf(userB, PREMIUM);
+    //   const newUserBBalance = await myCollectible.balanceOf(userB, SCENE_0);
     //   assert.isOk(newUserBBalance.eq(userBBalance.add(amount)));
     // });
 
@@ -265,7 +300,7 @@ contract("TileFactory", (accounts) => {
         myFactory.safeTransferFrom(
           vals.ADDRESS_ZERO,
           userB,
-          PREMIUM,
+          SCENE_0,
           amount,
           "0x0",
           { from: userB }

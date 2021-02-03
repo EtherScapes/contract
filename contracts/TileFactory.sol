@@ -13,6 +13,7 @@ contract TileFactory is ITileFactory, Ownable, ReentrancyGuard {
 
   address public proxyRegistryAddress;
   address public nftAddress;
+
   string constant internal baseMetadataURI = "https://raw.githubusercontent.com/etherscapes/metadata/master/";
   uint256 constant UINT256_MAX = ~uint256(0);
 
@@ -31,7 +32,9 @@ contract TileFactory is ITileFactory, Ownable, ReentrancyGuard {
    */
   struct Scene {
       bool exists;
-      uint256 rewardsScene;
+      uint256[] rewardSceneIds;
+      
+      uint256 price;
 
       // tiles per pack
       uint packSize;
@@ -58,7 +61,7 @@ contract TileFactory is ITileFactory, Ownable, ReentrancyGuard {
   /*
    *  A mapping of sceneId -> a list of all tile tokens assigned to this scene.
    */
-  mapping (uint256 => uint256[]) public sceneTokens;
+  mapping (uint256 => mapping (uint => uint256[])) public sceneTokens;
 
 
   constructor(address _proxyRegistryAddress, address _nftAddress) public {
@@ -67,54 +70,16 @@ contract TileFactory is ITileFactory, Ownable, ReentrancyGuard {
     sceneCount = 0;
   }
 
-  function makeScene(uint256 sceneId, uint ps, uint np, uint w, uint h, uint256 rewardSceneId) public onlyOwner {
-    require(sceneId != 0);
-    require(scenes[sceneId].exists != true);
-    require(ps > 0 && np > 0 && w > 0 && h > 0);
-    require(sceneIDToTokenID[sceneId] == 0, "TileFactory#makeScene: SCENE_ID_EXISTS");
-
-    scenes[sceneId] = Scene({
-      exists: true,
-      rewardsScene: rewardSceneId,
-      packSize: ps,
-      numPuzzles: np,
-      tilesWide: w, 
-      tilesHigh: h
-    });
-    sceneCount = sceneCount + 1;
-
-    Tile nftContract = Tile(nftAddress);
-    uint256 sceneTokenId = nftContract.create(
-                              msg.sender, 0,  
-                              Strings.strConcat(baseMetadataURI, "scene/{id}/meta.json"), 
-                              "0x0");
-    sceneIDToTokenID[sceneId] = sceneTokenId;
-    for (uint _p=0; _p < np; _p++) {
-      for (uint _h=0; _h < h; _h++) {
-        for (uint _w=0; _w < w; _w++) {
-          string memory tile = Strings.strConcat(Strings.uint2str(_p), "/", Strings.uint2str(_h), "-", Strings.uint2str(_w));
-          // Force the creation for this tile in this scene, with 0 initial supply.
-          uint256 puzzleTileTokenId = nftContract.create(msg.sender, 0,  
-                                        Strings.strConcat(baseMetadataURI, "scene/{id}/", tile, ".json"), 
-                                        "0x0");
-          
-          // Store it in the list of tokens created for this scene.
-          sceneTokens[sceneId].push(puzzleTileTokenId);
-        }
-      }
-    }
-  }
-
   /////
   // IFACTORY METHODS
   /////
 
   function name() external view returns (string memory) {
-    return "EtherScapes Scene Packs";
+    return "EtherScapes Scene Factory";
   }
 
   function symbol() external view returns (string memory) {
-    return "ESSP";
+    return "ESSF";
   }
 
   function supportsFactoryInterface() external view returns (bool) {
@@ -142,6 +107,8 @@ contract TileFactory is ITileFactory, Ownable, ReentrancyGuard {
       baseMetadataURI, "scene/", Strings.uint2str(_sceneId), "/meta.json");
   }
 
+
+
   /**
    * @dev Mint packs (for each sceneId) - this enforces the number of packs 
    *      per scene. 
@@ -153,7 +120,8 @@ contract TileFactory is ITileFactory, Ownable, ReentrancyGuard {
     bytes memory _data
   ) internal {
     require(_canMint(msg.sender, _sceneId, _amount), "TileFactory#_mint: CANNOT_MINT_MORE");
-    
+    require(_isOwnerOrProxy(msg.sender), "Caller cannot mint boxes");
+
     uint256 id = sceneIDToTokenID[_sceneId];
     require(id != 0, "TileFactory#_mint: INVALID_SCENE");
     
@@ -209,6 +177,23 @@ contract TileFactory is ITileFactory, Ownable, ReentrancyGuard {
     _mint(_sceneId, _to, _amount, _data);
   }
 
+  function buyScenePack(uint256 sceneId, uint256 numPacks) public payable {
+    require(scenes[sceneId].exists, "scene does not exist");
+    require(scenes[sceneId].price > 0, "scene has no price");
+    require(msg.value == numPacks.mul(scenes[sceneId].price), "insufficient funds");
+    require(_canMint(owner(), sceneId, numPacks), "no more inventory");
+    
+    uint256 id = sceneIDToTokenID[sceneId];
+    require(id != 0, "TileFactory#_mint: INVALID_SCENE");
+    
+    /*
+     *  Here we create `scene` tokens - these are essentially the card packs that we can open.
+     *  These will be limited by the TileFactory logic.
+     */
+    Tile nftContract = Tile(nftAddress);
+    nftContract.mint(msg.sender, id, numPacks, "");
+  }
+
   //////
   // Below methods shouldn't need to be overridden or modified
   //////
@@ -233,5 +218,79 @@ contract TileFactory is ITileFactory, Ownable, ReentrancyGuard {
   ) internal view returns (bool) {
     ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
     return owner() == _address || address(proxyRegistry.proxies(owner())) == _address;
+  }
+
+
+
+
+  function addScenePuzzles(uint256 sceneId, uint count) public onlyOwner {
+    require(sceneId != 0);
+    require(scenes[sceneId].exists == true);
+    
+    Tile nftContract = Tile(nftAddress);
+    
+    uint np = scenes[sceneId].numPuzzles;
+    for (uint _p = np; _p < np + count; _p++) {
+      for (uint _h=0; _h < scenes[sceneId].tilesHigh; _h++) {
+        for (uint _w=0; _w < scenes[sceneId].tilesWide; _w++) {
+          string memory tile = Strings.strConcat(Strings.uint2str(_p), "/", Strings.uint2str(_h), "-", Strings.uint2str(_w));
+          // Force the creation for this tile in this scene, with 0 initial supply.
+          uint256 puzzleTileTokenId = nftContract.create(msg.sender, 0,  
+                                      Strings.strConcat(baseMetadataURI, "scene/{id}/", tile, ".json"), 
+                                      "0x0");
+          
+          // Store it in the list of tokens created for this scene.
+          sceneTokens[sceneId][_p].push(puzzleTileTokenId);
+        }
+      }
+    }
+    scenes[sceneId].numPuzzles += count;
+  }
+
+  function makeScene(uint256 sceneId, uint ps, uint256 cost, uint w, uint h) public onlyOwner returns (uint256) {
+    require(sceneId != 0);
+    require(scenes[sceneId].exists != true);
+    require(ps > 0 && w > 0 && h > 0);
+    require(sceneIDToTokenID[sceneId] == 0, "TileFactory#makeScene: SCENE_ID_EXISTS");
+
+    Scene storage s = scenes[sceneId];
+    s.exists = true;
+    s.price = cost;
+    s.packSize = ps;
+    s.numPuzzles = 0;
+    s.tilesWide = w;
+    s.tilesHigh = h;
+    sceneCount = sceneCount + 1;
+
+    Tile nftContract = Tile(nftAddress);
+    uint256 sceneTokenId = nftContract.create(
+                              msg.sender, 0,  
+                              Strings.strConcat(baseMetadataURI, "scene/{id}/meta.json"), 
+                              "0x0");
+    sceneIDToTokenID[sceneId] = sceneTokenId;
+    return sceneTokenId;
+  }
+
+  function addSceneReward(uint256 sceneId, uint256 rewardSceneId) public onlyOwner returns (uint256) {
+    require(sceneId != 0);
+    require(rewardSceneId != 0);
+    require(scenes[sceneId].exists && scenes[rewardSceneId].exists);
+
+    scenes[sceneId].rewardSceneIds.push(rewardSceneId);
+    return rewardSceneId;
+  }
+
+  function removeSceneReward(uint256 sceneId, uint256 rewardSceneId) public onlyOwner returns (uint256) {
+    require(sceneId != 0);
+    require(rewardSceneId != 0);
+    for (uint i = 0; i < scenes[sceneId].rewardSceneIds.length; i++) {
+      if (scenes[sceneId].rewardSceneIds[i] == rewardSceneId) {
+        // Remove this element by moving the last dude here and removing the last slot.
+        scenes[sceneId].rewardSceneIds[i] = scenes[sceneId].rewardSceneIds[scenes[sceneId].rewardSceneIds.length - 1];
+        scenes[sceneId].rewardSceneIds.length--;
+        return rewardSceneId;
+      }
+    }
+    return 0;
   }
 }
