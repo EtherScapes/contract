@@ -1,4 +1,4 @@
-# contract
+# EtherScapes
 
-The EtherScapes smart contract.
+Machine generated crypto generated jig-saw NFTs!
 
