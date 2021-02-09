@@ -6,14 +6,19 @@ const EscapeToken = artifacts.require("EscapeToken");
 
 const config = require('../lib/configV1.js');
 
+const SETUP_PACKS = false;
 
-async function setupCardsAndPacks(network, escapeTokenAddress) {
+async function setupPostDeployment(network, escapeTokenAddress) {
   console.log("Setup inter-contract roles...");
   const tilePack = await ESTilePack.deployed();
   const tile = await ESTile.deployed();
   const escape = await EscapeToken.deployed();
+  const wrapper = await ESTileWrapper.deployed();
 
-  console.log(tilePack.address);
+  console.log("ESTile        = ", tile.address);
+  console.log("ESTilePack    = ", tilePack.address);
+  console.log("EscapeToken   = ", escape.address);
+  console.log("ESTileWrapper = ", wrapper.address);
 
   // The escape token needs to grant the tile contract minter rights.
   await escape.setMinter(tile.address);
@@ -25,14 +30,33 @@ async function setupCardsAndPacks(network, escapeTokenAddress) {
   await tile.grantRole(MINTER_ROLE, tilePack.address);
 
   // Grant the ESTileWrapper permission to mint ESTilePack
-  const wrapper = await ESTileWrapper.deployed();
   await tilePack.grantRole(MINTER_ROLE, wrapper.address);
-
-  // Grant the ESTileWrapper permission to mint ESCAPE tokens on redeem.
 
   if (network === 'rinkeby') {
     // Grant test minter on Rinkeby
-    await tilePack.grantRole(MINTER_ROLE, '0x636c54bA584fC0e81F772c27c44CDbE773b18313');
+    await tilePack.grantRole(MINTER_ROLE, '0xD4F8fdD249ba41323880CefECEBca2Ab590D571F');
+  }
+
+  if (process.env.DEPLOY_SCENE0) {
+    console.log("Creating scene 1 and pack 1");
+    const SCENE0 = 1;
+
+    await tile.createScene(
+      SCENE0, // sceneId, scene id 1
+      5,      // numPuzzles, 5 puzzles
+      2,      // puzzleHeight, 2 tiles high
+      3,      // puzzleWidth, 3 tiles wide
+      100000, // puzzleRewardTotal, 100k ESCAPEs per scene
+      500     // puzzleRewardRate, 5%
+    );
+    
+    await tilePack.createPack(
+      SCENE0, 
+      1000,     // 1000 escapes per pack
+      10,       // 10 tiles per pack
+      1200,     // 1000 packs for sale, 200 airdrop budget
+      true      // can be purchased for 0.1 eth per pack ;
+    );
   }
 }
 
@@ -50,13 +74,21 @@ module.exports = function(deployer, network) {
   // Escape contract
   let escapeTokenAddress;
   let namingContractAddress;
+  let escapeTokenMainnetAddress; // FIX THIS ONCE WE DEPLOY THE ESCAPE TOKEN
   let context = this;
 
   if (network.indexOf('mainnet') === -1) {
     escapeTokenAddress = EscapeToken.address;
     console.log("Using developmet EscapeToken at address", escapeTokenAddress);
   } else {
-    escapeTokenAddress = '0x1453Dbb8A29551ADe11D89825CA812e05317EAEB';
+    if (escapeTokenMainnetAddress) {
+        // Token address provided! using default of:
+        escapeTokenAddress = escapeTokenMainnetAddress;
+        console.log("Using deployed escape token - ", escapeTokenAddress);
+    } else {
+        escapeTokenAddress = EscapeToken.address;
+        console.log("Using just deployed EcapeToken at address", escapeTokenAddress);
+    }
   }
 
   namingContractAddress = NamingContract.address;
@@ -69,7 +101,7 @@ module.exports = function(deployer, network) {
         .then((instanceBox) => {
           console.log("Deploying ESTileWrapper");
           return deployer.deploy(ESTileWrapper, escapeTokenAddress, instanceBox.address)
-            .then(setupCardsAndPacks.bind(this, network, escapeTokenAddress));
+            .then(setupPostDeployment.bind(this, network, escapeTokenAddress));
         });
     });
 };

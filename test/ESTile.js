@@ -44,7 +44,6 @@ advanceTimeAndBlock = async (time) => {
 contract("ESTile", (accounts) => {
   let instance, escToken;
 
-  const INITIAL_CARD_SET_SIZE = config.TOKEN_COUNTS.reduce((a, b) => a + b, 0);
   let tokenId = 0;
 
   let CREATOR_ROLE,
@@ -108,20 +107,28 @@ contract("ESTile", (accounts) => {
 
   describe('#create()', () => {
     it('verify the maxTokenID matches expected amount - 1 initially', async () => {
-      let maxTokenID = await instance.maxTokenID();
-      assert.equal(1, maxTokenID.toNumber());
+      if (process.env.DEPLOY_SCENE0) {
+        console.log(" -- skipping scene0 creation for test");
+      } else {
+        let maxTokenID = await instance.maxTokenID();
+        assert.equal(1, maxTokenID.toNumber());
+      }
     });
 
     it('creator should be able to define a new scene', async () => {
-      let origMaxTokenID = await instance.maxTokenID();
-      await instance.createScene(
-        SCENE_0,
-        SCENE_0_NumPuzzles,
-        SCENE_0_TilesHigh,
-        SCENE_0_TilesWide,
-        100000, 500,    // 100k coins per scene, 5% drain per solve until 0.
-        { from: userCreator }
-      );
+      if (process.env.DEPLOY_SCENE0) {
+        console.log(" -- skipping scene0 creation for test");
+      } else {
+        let origMaxTokenID = await instance.maxTokenID();
+        await instance.createScene(
+          SCENE_0,
+          SCENE_0_NumPuzzles,
+          SCENE_0_TilesHigh,
+          SCENE_0_TilesWide,
+          100000, 500,    // 100k coins per scene, 5% drain per solve until 0.
+          { from: userCreator }
+        );
+      }
     
       // Scene should contain np * h * w + 1 tokens registered, each with
       // total supply of 0.

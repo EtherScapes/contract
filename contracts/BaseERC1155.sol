@@ -4,8 +4,6 @@ pragma solidity ^0.6.0;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-//import "@openzeppelin/contracts/access/AccessControl.sol";
-//import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "./erc1155-openzeppelin/AccessControl.sol";
 import "./erc1155-openzeppelin/ERC1155.sol";
 

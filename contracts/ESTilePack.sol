@@ -70,7 +70,25 @@ contract ESTilePack is BaseERC1155
     p.maxQuantity = packQuantity;
     packsLeft[packTokenId] = packQuantity;
   }
+    
+  function numPacksCreated() view public returns (uint256) {
+    return maxTokenID;
+  }
 
+  /*
+   *  Returns the pack and associated info for the pack. This is usually
+   *  the sceneId, the cost to buy it, how many max and how many are left.
+   *
+   *  Returns:
+   *    sceneId, escapeCost, isPurchaseable, tilesPerPack, maxQuant, packsLeft
+   */
+  function getPackInfo(uint256 packId) view public returns (uint256, uint256, bool, uint256, uint256, uint256) {
+    require(packs[packId].exists, "invalid pack");
+    return (packs[packId].sceneId, 
+            packs[packId].escapeCost, packs[packId].isPurchaseable, 
+            packs[packId].tilesPerPack, 
+            packs[packId].maxQuantity, packsLeft[packId]);
+  }
 
   // Open a pack
   function open(
@@ -128,9 +146,6 @@ contract ESTilePack is BaseERC1155
     }
   }
 
-  /* 
-   * Override mint for the opened instantly packs.
-   */
   function mint(
     address _to,
     uint256 _id,
@@ -139,7 +154,7 @@ contract ESTilePack is BaseERC1155
   )
     public override
   {
-    packsLeft[_id].sub(_amount, "not enough packs left");
+    packsLeft[_id] = packsLeft[_id].sub(_amount, "not enough packs left");
     super.mint(_to, _id, _amount, _data);
   }
 
@@ -152,7 +167,7 @@ contract ESTilePack is BaseERC1155
     public override
   {
     for (uint256 i = 0; i < _ids.length; i++) {
-      packsLeft[_ids[i]].sub(_amounts[i], "not enough packs left");
+      packsLeft[_ids[i]] = packsLeft[_ids[i]].sub(_amounts[i], "not enough packs left");
     }
     super.mintBatch(_to, _ids, _amounts, _data);
   }

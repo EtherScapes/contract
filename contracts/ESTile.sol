@@ -56,10 +56,9 @@ contract ESTile is BaseERC1155
     uint256 numTiles;
   }
 
-  // TODO: internal
-  uint256 sceneCount;
-  mapping (uint256 => Scene) public scenes;
-  mapping (uint256 => uint256) public sceneRewardLeft;
+  uint256 internal sceneCount;
+  mapping (uint256 => Scene) internal scenes;
+  mapping (uint256 => uint256) internal sceneRewardLeft;
 
   /*
    *  Constructor!
@@ -95,8 +94,8 @@ contract ESTile is BaseERC1155
   function createScene(
     uint256 sceneId,
     uint256 numPuzzles,
-    uint256 puzzleWidth,
     uint256 puzzleHeight,
+    uint256 puzzleWidth,
     uint256 puzzleRewardTotal,
     uint256 puzzleRewardRate
   )
@@ -143,6 +142,11 @@ contract ESTile is BaseERC1155
 
     // Update latest id with the last 
     maxTokenID = tid;
+    sceneCount = sceneCount.add(1);
+  }
+
+  function numScenes() view external returns (uint256) {
+      return sceneCount;
   }
   function scenePuzzles(uint256 sceneId) view external returns (uint256) {
     return scenes[sceneId].numPuzzles;
@@ -216,6 +220,7 @@ contract ESTile is BaseERC1155
     require(scenes[sceneId].exists == true, "scene does not exist");
     require(puzzleId < scenes[sceneId].numPuzzles, "invalid puzzle requested");
     uint256 puzzleTokenId = sceneToPuzzleToken[sceneId][puzzleId];
+    require(balanceOf(msg.sender, puzzleTokenId) > 0, "only rename owned puzzles");
     namingContract.nameTokenFor(msg.sender, puzzleTokenId, name);
   }
 

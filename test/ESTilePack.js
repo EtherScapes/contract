@@ -4,8 +4,6 @@ const config = require('../lib/configV1.js');
 
 const ESTilePack = artifacts.require("../contracts/ESTilePack.sol");
 const ESTile = artifacts.require("../contracts/ESTile.sol");
-// const ESTilePackWithERC20 = artifacts.require("../contracts/ESTilePackWithERC20.sol");
-const TestERC20 = artifacts.require("../contracts/escape/TestERC20.sol");
 
 /* Useful aliases */
 const toBN = web3.utils.toBN;
@@ -45,13 +43,16 @@ contract("ESTilePack", (accounts) => {
 
   before(async () => {
     esTileInstance = await ESTile.deployed();
-    testERC20Instance = await TestERC20.deployed();
     instance = await ESTilePack.deployed();
 
-    await esTileInstance.createScene(SCENE_0, SCENE_0_NumPuzzles, 
-                                     SCENE_0_TilesHigh, SCENE_0_TilesWide, 
-                                     SCENE_0_RewardPool, SCENE_0_DrainRate, 
-                                     { from: owner });
+    if (process.env.DEPLOY_SCENE0) {
+      console.log(" -- skipping scene0 creation for test");
+    } else {
+      await esTileInstance.createScene(SCENE_0, SCENE_0_NumPuzzles, 
+                                        SCENE_0_TilesHigh, SCENE_0_TilesWide, 
+                                        SCENE_0_RewardPool, SCENE_0_DrainRate, 
+                                        { from: owner });
+    }
   });
 
   after(async () => {
@@ -98,13 +99,15 @@ contract("ESTilePack", (accounts) => {
       // This will create two tokens, one for the scene pack itself as a tradeable
       // and another as a instantly opened variant of the scene which also can be
       // purchased via a opensea / rarible etc market.
-      await instance.createPack(SCENE_0, 500, 10, 1000, true, { from: userCreator });
+      if (process.env.DEPLOY_SCENE0) {
+        console.log(" -- skipping pack0 creation for test");
+      } else {
+        await instance.createPack(SCENE_0, 500, 10, 1000, true, { from: userCreator });
+        let maxTokenID = await instance.maxTokenID();
+        assert.equal(origMaxTokenID.toNumber() + 1, maxTokenID.toNumber());
+      }
 
       let maxTokenID = await instance.maxTokenID();
-      // Feat: auto-create-open pack
-      // assert.equal(origMaxTokenID.toNumber() + 2, maxTokenID.toNumber());
-      assert.equal(origMaxTokenID.toNumber() + 1, maxTokenID.toNumber());
-
       const supply = await instance.totalSupply(maxTokenID);
       assert.ok(supply.eq(toBN(0)));
     });
@@ -123,7 +126,6 @@ contract("ESTilePack", (accounts) => {
       let maxTokenID = await instance.maxTokenID();
       let randMintAmount = Math.floor(Math.random() * 10);
       const supplyInitial = await instance.totalSupply(maxTokenID);
-
       await instance.mint(userA, maxTokenID, randMintAmount, "0x0", { from: userMinter });
 
       const balance = await instance.balanceOf(userA, maxTokenID);
@@ -308,7 +310,7 @@ contract("ESTilePack", (accounts) => {
             'not enough packs left'
           );
         
-        await instance.mint(userA, boxTokenId, 1000 - 3, "0x0", { from: userMinter });
+        await instance.mint(userA, boxTokenId, 100, "0x0", { from: userMinter });
       });
   });
 });

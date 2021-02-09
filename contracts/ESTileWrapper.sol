@@ -78,4 +78,11 @@ contract ESTileWrapper is Ownable
     require(msg.value == packCost, "not enough eth");
     esTilePackInstance.mint(_msgSender(), _packId, count, "");
   }
+
+  function withdrawBalance() public onlyOwner {
+    uint256 balance = address(this).balance;
+    require(balance > 0, "no balance left");
+    address payable owner = payable(owner());
+    owner.transfer(balance);
+  }
 }

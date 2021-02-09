@@ -28,7 +28,6 @@ contract EscapeToken is EscapeERC20, Ownable {
 
     address public pauser;
     address public esTileAddress;
-    address public namerContractAddress;
     bool public paused;
 
     // MODIFIERS
@@ -51,11 +50,7 @@ contract EscapeToken is EscapeERC20, Ownable {
         require(esTileAddress == _msgSender() || owner() == _msgSender(), "Ownable: caller is not the owner or esTileAddress");
         _;
     }
-    modifier onlyOwnerOrNamerContract() {
-        require(namerContractAddress == _msgSender() || owner() == _msgSender(), "Ownable: caller is not the owner or namer contract");
-        _;
-    }
-
+    
     // EVENTS
     constructor()
     public
@@ -70,10 +65,7 @@ contract EscapeToken is EscapeERC20, Ownable {
     function setMinter(address _esTileAddressAddress) external onlyOwner {
         esTileAddress = _esTileAddressAddress;
     }
-    function setNamer(address _namerContractAddress) external onlyOwner {
-        namerContractAddress = _namerContractAddress;
-    }
-
+    
     function _mint(address account, uint256 amount) internal override onlyOwnerOrEsTileContract {
         require(account != address(0), "ERC20: mint to the zero address");
 

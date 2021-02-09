@@ -22,11 +22,11 @@ contract("ESTileWrapper", (accounts) => {
   const SCENE_0_TilesPerPuzzle = SCENE_0_TilesHigh * SCENE_0_TilesWide;
   const SCENE_0_TileTokenCount = SCENE_0_NumPuzzles * SCENE_0_TilesPerPuzzle;
   
-  const PACK_0 = 1;
-  const PACK_0_EscapeCost = 100;
-  const PACK_0_Quantitiy = 1000;
-  const PACK_0_NumTiles = 10;
-
+  let PACK_0 = 1;
+  let PACK_0_EscapeCost = 1000;
+  let PACK_0_Quantitiy = 1200;
+  let PACK_0_NumTiles = 10;
+  
   const owner = accounts[0];
   const userA = accounts[1];
   const userB = accounts[2];
@@ -38,13 +38,20 @@ contract("ESTileWrapper", (accounts) => {
     escapeTokenInstance = await EscapeToken.deployed();
     esTileInstance = await ESTile.deployed();
     esTilePackInstance = await ESTilePack.deployed();
-    await esTileInstance.createScene(SCENE_0, SCENE_0_NumPuzzles, 
-                                     SCENE_0_TilesHigh, SCENE_0_TilesWide, 100000, 500, 
-                                     { from: owner });
-    
-    // function createPack(uint256 sceneId, uint256 escapeCost, uint256 tilesPerPack, uint256 packQuantity, bool isPurchaseable) external {
-    await esTilePackInstance.createPack(SCENE_0, PACK_0_EscapeCost, PACK_0_NumTiles, 
-                                        PACK_0_Quantitiy, true, { from: owner });
+    if (process.env.DEPLOY_SCENE0) {
+      console.log(" -- skipping scene0 & pack0 creation for test");
+    } else {
+      await esTileInstance.createScene(SCENE_0, SCENE_0_NumPuzzles, 
+                                      SCENE_0_TilesHigh, SCENE_0_TilesWide, 
+                                      100000, 500, 
+                                      { from: owner });
+      
+      await esTilePackInstance.createPack(SCENE_0, PACK_0_EscapeCost, 
+                                          PACK_0_NumTiles, PACK_0_Quantitiy, 
+                                          true, 
+                                          { from: owner });
+    }
+      
 
     await escapeTokenInstance.mintForAccount(userA, 5000);
     await escapeTokenInstance.mintForAccount(userB, 50000000);
@@ -57,7 +64,7 @@ contract("ESTileWrapper", (accounts) => {
       async () => {
         await instance.buyPacksForCredits(PACK_0, 5, {from: userA});
         let balance = await escapeTokenInstance.balanceOf(userA);
-        assert.ok(balance.eq(toBN(5000 - (100 * 5)))); // should spend escape.
+        assert.ok(balance.eq(toBN(5000 - (1000 * 5)))); // should spend escape.
 
         balance = await esTilePackInstance.balanceOf(userA, PACK_0);
         assert.ok(balance.eq(toBN(5))); // should have 5 packs.
@@ -80,7 +87,7 @@ contract("ESTileWrapper", (accounts) => {
     it("should not buy too many packs", 
       async () => {
         truffleAssert.fails(
-          instance.buyPacksForCredits(PACK_0, 100000, {from: userB}),
+          instance.buyPacksForCredits(PACK_0, 1300, {from: userB}),
           truffleAssert.ErrorType.revert,
           'not enough packs left'
         );
@@ -88,6 +95,13 @@ contract("ESTileWrapper", (accounts) => {
   });
 
   describe('ETH based pack purchase', () => {
+    it("should have no eth balance", 
+      async () => {
+        truffleAssert.fails(
+          instance.withdrawBalance({from: owner}),
+          truffleAssert.ErrorType.revert,
+          "no balance left");
+      })
     it("should redeem 0.1 ETH for a pack", 
       async () => {
         await instance.buyPacksForETH(PACK_0, 1, {from: userC, value: web3.utils.toWei("0.1", "ether")});
@@ -101,15 +115,17 @@ contract("ESTileWrapper", (accounts) => {
         balance = await esTilePackInstance.balanceOf(userC, PACK_0);
         assert.ok(balance.eq(toBN(0))); // should have 0 packs, 5 opened
       });
-
-    it("should not buy too many packs", 
+    
+    it("should have eth balance (0.1) to withdraw", 
       async () => {
-        truffleAssert.fails(
-          instance.buyPacksForETH(PACK_0, 1001, {from: userC}),
-          truffleAssert.ErrorType.revert,
-          'not enough packs left'
-        );
-      });
+        let ethBal = await web3.eth.getBalance(owner);
+        await instance.withdrawBalance({from: owner});
+        let newEthBal = await web3.eth.getBalance(owner);
+        
+        let ob = web3.utils.fromWei(ethBal);
+        let nb = web3.utils.fromWei(newEthBal);
+        assert.ok(ob < nb - 0.01); // Fees
+      })
   });
 
 });

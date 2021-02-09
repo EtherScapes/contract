@@ -18,7 +18,7 @@
  *
  */
 
-const HDWalletProvider = require('truffle-hdwallet-provider');
+const HDWalletProvider = require('@truffle/hdwallet-provider');
 const MNEMONIC = process.env.MNEMONIC;
 const INFURA_KEY = process.env.INFURA_KEY;
 
@@ -52,8 +52,14 @@ module.exports = {
     development: {
         host: 'localhost',
         port: 7545,
-        gas: 8000000,
+        gas: 6721975,
         network_id: '*' // Match any network id
+    },
+
+    development2: {
+        host: 'localhost',
+        port: 8545,
+        network_id: '*'
     },
     
     rinkeby: {
