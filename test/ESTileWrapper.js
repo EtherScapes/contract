@@ -17,9 +17,7 @@ contract("ESTileWrapper", (accounts) => {
 
   const SCENE_0 = toBN(1);
   const SCENE_0_NumPuzzles = 5;
-  const SCENE_0_TilesHigh = 2;
-  const SCENE_0_TilesWide = 3;
-  const SCENE_0_TilesPerPuzzle = SCENE_0_TilesHigh * SCENE_0_TilesWide;
+  const SCENE_0_TilesPerPuzzle = 6;
   const SCENE_0_TileTokenCount = SCENE_0_NumPuzzles * SCENE_0_TilesPerPuzzle;
   
   let PACK_0 = 1;
@@ -42,7 +40,7 @@ contract("ESTileWrapper", (accounts) => {
       console.log(" -- skipping scene0 & pack0 creation for test");
     } else {
       await esTileInstance.createScene(SCENE_0, SCENE_0_NumPuzzles, 
-                                      SCENE_0_TilesHigh, SCENE_0_TilesWide, 
+                                      SCENE_0_TilesPerPuzzle,
                                       100000, 500, 
                                       { from: owner });
       

@@ -15,6 +15,8 @@ test-wrapper:
 
 deploy-test:
 	DEPLOY_SCENE0=1 truffle deploy --network development
+	
+update-contracts:
 	cp build/contracts/EscapeToken.json ../www/src/contract/EscapeToken.json
 	cp build/contracts/ESTile.json ../www/src/contract/ESTile.json
 	cp build/contracts/ESTilePack.json ../www/src/contract/ESTilePack.json

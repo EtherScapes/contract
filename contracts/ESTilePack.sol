@@ -2,24 +2,22 @@
 
 pragma solidity ^0.6.0;
 
-//import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./BaseERC1155.sol";
 import "./ESTile.sol";
 
-/**
- * @title ESTilePack
- * ESTilePack - a contract for semi-fungible tokens
+/*
+ *  ESTilePack implements a ERC1155 collectable pack-of-tiles. Packs can be 
+ *  created and opened by this contract to get ESTile tokens for scenes.
+ *
+ *  Unlike the tile tokens which have no preset limit, the packs are limited and
+ *  indirectly limit the tiles and tokens.
  */
 contract ESTilePack is BaseERC1155
 {
   using SafeMath for uint256;
-
-  // Information for random card pack pulls
-  uint256 seed;
-
-  // NFT Contract
-  ESTile public esTileContract;
-
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
   struct PackInfo {
     uint256 sceneId; // scene that this pack will generate tiles for.
     uint256 escapeCost; // Cost to buy pack in escape tokens, 0 = cannot buy.
@@ -29,12 +27,36 @@ contract ESTilePack is BaseERC1155
     bool exists;
   }
 
-  // Mapping of all pack infos.
+  //////////////////////////////////////////////////////////////////////////////
+
+  /*
+   *  Allow the owner to update the seed to improve randomness, maybe use an
+   *  oracle eventually.
+   */
+  uint256 seed;
+
+  /*
+   *  Reference to the ESTile contract which should grant us rights to mint tile
+   *  tokens.
+   */
+  ESTile public esTileContract;
+  
+  /*
+   *  Mapping of created packs and their descriptions.
+   */
   mapping (uint256 => PackInfo) internal packs;
 
-  // Mapping of packId -> how many of those packs we have left.
+  /*
+   *  Maintain a hard cap on each pack - mint() will be limited by `packLeft`.
+   */
   mapping (uint256 => uint256) internal packsLeft;
 
+  //////////////////////////////////////////////////////////////////////////////
+  
+  /*
+   *  Contract constructor, setup the base ERC1155 token and the data URI using
+   *  the {id} substitution to save gas.
+   */
   constructor(
     string memory _uri,
     address _nftAddress,
@@ -51,10 +73,23 @@ contract ESTilePack is BaseERC1155
     esTileContract = ESTile(_nftAddress);
   }
 
-/**
- * Only Token Creator Functions
- **/
-  function createPack(uint256 sceneId, uint256 escapeCost, uint256 tilesPerPack, uint256 packQuantity, bool isPurchaseable) external {
+  //////////////////////////////////////////////////////////////////////////////
+
+  /*
+   *  Create a pack for a given scene. Packs are the only tokens we issue in 
+   *  this ERC1155 contract. A pack unlocks tiles in a scene, can be purchased
+   *  for ESCAPE credits and release N tiles on pack open. Some packs will be
+   *  purchaseable for ETH and some only for ESCAPE.
+   */
+  function createPack(
+    uint256 sceneId,
+    uint256 escapeCost,
+    uint256 tilesPerPack,
+    uint256 packQuantity,
+    bool isPurchaseable
+  ) 
+    external 
+  {
     require(hasRole(CREATOR_ROLE, _msgSender()), "Not a creator");
     require(esTileContract.sceneExists(sceneId), "not a valid scene");
 
@@ -70,10 +105,10 @@ contract ESTilePack is BaseERC1155
     p.maxQuantity = packQuantity;
     packsLeft[packTokenId] = packQuantity;
   }
+
+  //////////////////////////////////////////////////////////////////////////////
     
-  function numPacksCreated() view public returns (uint256) {
-    return maxTokenID;
-  }
+  function numPacksCreated() view public returns (uint256) { return maxTokenID; }
 
   /*
    *  Returns the pack and associated info for the pack. This is usually
@@ -82,7 +117,13 @@ contract ESTilePack is BaseERC1155
    *  Returns:
    *    sceneId, escapeCost, isPurchaseable, tilesPerPack, maxQuant, packsLeft
    */
-  function getPackInfo(uint256 packId) view public returns (uint256, uint256, bool, uint256, uint256, uint256) {
+  function getPackInfo(
+    uint256 packId
+  ) 
+    view 
+    public 
+    returns (uint256, uint256, bool, uint256, uint256, uint256) 
+  {
     require(packs[packId].exists, "invalid pack");
     return (packs[packId].sceneId, 
             packs[packId].escapeCost, packs[packId].isPurchaseable, 
@@ -90,7 +131,23 @@ contract ESTilePack is BaseERC1155
             packs[packId].maxQuantity, packsLeft[packId]);
   }
 
-  // Open a pack
+  function packCosts(
+    uint256 _packId
+  ) 
+    view 
+    public 
+    returns (uint256, bool) 
+  {
+    require(packs[_packId].exists);
+    return (packs[_packId].escapeCost, packs[_packId].isPurchaseable);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /*
+   *  User visible function to open() N number of packs. Each pack opened will
+   *  burn the pack token, and mint the tile tokens required.
+   */
   function open(
     uint256 _packId,
     uint256 _amount
@@ -103,7 +160,9 @@ contract ESTilePack is BaseERC1155
   }
 
 
-  // Open a pack
+  /*
+   *  Open a pack for a approved user.
+   */
   function openFor(
     uint256 _packTokenId,
     uint256 _amount,
@@ -131,6 +190,7 @@ contract ESTilePack is BaseERC1155
     uint256 numTiles;
     uint256 numPuzzles;
     (tokenStart, numTiles, numPuzzles) = esTileContract.tokenRangeForScene(packs[_packTokenId].sceneId);
+    uint256 numTilesInScene = numTiles.mul(numPuzzles);
     
     for (uint256 i = 0; i < packs[_packTokenId].tilesPerPack; i++) {
       quantitiesToMint[i] = 1;
@@ -138,13 +198,15 @@ contract ESTilePack is BaseERC1155
     for (uint256 packId = 0; packId < _amount; packId++) {
       for (uint256 i = 0; i < packs[_packTokenId].tilesPerPack; i++) {
         // Keep track of token IDs we're minting and their quantities
-        tokenIdsToMint[i] = tokenStart + _random().mod(numTiles);
+        tokenIdsToMint[i] = tokenStart.add(_random().mod(numTilesInScene));
       }
 
       // Mint all of the tokens for this pack
       esTileContract.mintBatch(_recipient, tokenIdsToMint, quantitiesToMint, "");
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   function mint(
     address _to,
@@ -171,17 +233,8 @@ contract ESTilePack is BaseERC1155
     }
     super.mintBatch(_to, _ids, _amounts, _data);
   }
-  
-  function packCosts(uint256 _packId) view public returns (uint256, bool) {
-    require(packs[_packId].exists);
-    return (packs[_packId].escapeCost, packs[_packId].isPurchaseable);
-  }
 
-  /////
-  // HELPER FUNCTIONS
-  /////
-
-
+  //////////////////////////////////////////////////////////////////////////////
 
   function _random()
     internal
@@ -199,7 +252,6 @@ contract ESTilePack is BaseERC1155
     seed = randomNumber;
     return randomNumber;
   }
-
 
   function setSeed(
     uint256 _newSeed

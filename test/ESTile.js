@@ -53,9 +53,7 @@ contract("ESTile", (accounts) => {
  
   const SCENE_0 = toBN(1);
   const SCENE_0_NumPuzzles = 5;
-  const SCENE_0_TilesHigh = 2;
-  const SCENE_0_TilesWide = 3;
-  const SCENE_0_TilesPerPuzzle = SCENE_0_TilesHigh * SCENE_0_TilesWide;
+  const SCENE_0_TilesPerPuzzle = 6;
   const SCENE_0_TileTokenCount = SCENE_0_NumPuzzles * SCENE_0_TilesPerPuzzle;
 
   const PUZZLE_0 = 0;
@@ -123,7 +121,7 @@ contract("ESTile", (accounts) => {
         await instance.createScene(
           SCENE_0,
           SCENE_0_NumPuzzles,
-          SCENE_0_TilesHigh,
+          SCENE_0_TilesPerPuzzle,
           SCENE_0_TilesWide,
           100000, 500,    // 100k coins per scene, 5% drain per solve until 0.
           { from: userCreator }
@@ -133,7 +131,7 @@ contract("ESTile", (accounts) => {
       // Scene should contain np * h * w + 1 tokens registered, each with
       // total supply of 0.
       let maxTokenID = await instance.maxTokenID();
-      assert.equal(maxTokenID.toNumber(), 1 + SCENE_0_NumPuzzles + (SCENE_0_NumPuzzles * SCENE_0_TilesHigh * SCENE_0_TilesWide));
+      assert.equal(maxTokenID.toNumber(), 1 + SCENE_0_NumPuzzles + (SCENE_0_NumPuzzles * SCENE_0_TilesPerPuzzle));
 
       const supply = await instance.totalSupply(maxTokenID);
       assert.ok(supply.eq(toBN(0)));

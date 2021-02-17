@@ -144,7 +144,6 @@ contract BaseERC1155 is Context, AccessControl, Ownable, ERC1155
     maxTokenID = maxTokenID.add(_numberToCreate);
   }
 
-
 /**
  * Only Token Minter Functions
  **/

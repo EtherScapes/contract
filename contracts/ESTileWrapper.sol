@@ -10,18 +10,20 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./escape/EscapeToken.sol";
 import "./ESTilePack.sol";
 
-/**
- * @title ESTileWrapper
- * ESTileWrapper - a contract to wrap the $TEND contract
- * to allow for calling $TEND functions and mint packs
+/*
+ *  ESTileWrapper implements a contract which allows tile packs to be purcahsed
+ *  for ESCAPE or ETH.
  */
 contract ESTileWrapper is Ownable
 {
   using SafeMath for uint256;
 
-  ERC20Burnable public erc20Contract;
+  //////////////////////////////////////////////////////////////////////////////
+
   EscapeToken public escapeTokenContract;
   ESTilePack public esTilePackInstance;
+
+  //////////////////////////////////////////////////////////////////////////////
 
   constructor(
     address _tendAddress,
@@ -34,10 +36,11 @@ contract ESTileWrapper is Ownable
     esTilePackInstance = ESTilePack(_boxAddress);
   }
 
-/**
- * Only Owner Functions
- **/
+  //////////////////////////////////////////////////////////////////////////////
 
+  /*
+   *  Update contract address for the ESCAPE token.
+   */
   function setEscapeTokenAddress(
     address _address
   )
@@ -47,7 +50,10 @@ contract ESTileWrapper is Ownable
     require(_address != address(0), "Can't set zero address");
     escapeTokenContract = EscapeToken(_address);
   }
-
+  
+  /*
+   *  Update contract address for the ESTilePack contract.
+   */
   function setTilePackContractAddress(
     address _address
   )
@@ -58,7 +64,14 @@ contract ESTileWrapper is Ownable
     esTilePackInstance = ESTilePack(_address);
   }
 
-  function buyPacksForCredits(uint256 _packId, uint256 count) public {
+  //////////////////////////////////////////////////////////////////////////////
+
+  function buyPacksForCredits(
+    uint256 _packId, 
+    uint256 count
+  ) 
+    public 
+  {
     uint256 packCostInCredits;
     bool canBuyForEth;
     (packCostInCredits, canBuyForEth) = esTilePackInstance.packCosts(_packId);
@@ -69,7 +82,12 @@ contract ESTileWrapper is Ownable
     esTilePackInstance.mint(_msgSender(), _packId, count, "");
   }
 
-  function buyPacksForETH(uint256 _packId, uint256 count) payable public {
+  function buyPacksForETH(
+    uint256 _packId,
+    uint256 count
+  ) 
+    payable public 
+  {
     uint256 packCostInCredits;
     bool canBuyForEth;
     (packCostInCredits, canBuyForEth) = esTilePackInstance.packCosts(_packId);
@@ -79,7 +97,12 @@ contract ESTileWrapper is Ownable
     esTilePackInstance.mint(_msgSender(), _packId, count, "");
   }
 
-  function withdrawBalance() public onlyOwner {
+  //////////////////////////////////////////////////////////////////////////////
+
+  function withdrawBalance() 
+    public 
+    onlyOwner 
+  {
     uint256 balance = address(this).balance;
     require(balance > 0, "no balance left");
     address payable owner = payable(owner());

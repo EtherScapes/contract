@@ -6,31 +6,23 @@ import "./BaseERC1155.sol";
 import "./NamingContract.sol";
 import "./escape/EscapeToken.sol";
 
-/**
- * @title ESTile
- * ESTile - a contract for semi-fungible tokens
+/*
+ *  ESTile - This is a ERC1155 contract which allows for tiles and completed 
+ *  puzzles to be tokenized. Scenes are a collection of puzzles, and puzzles
+ *  are a collection of tiles. 
+ *
+ *  Basic rules:
+ *  
+ *  Only this contract can mint the finished puzzle tokens, and it will only
+ *  do so when the a user tx trades in all N puzzle tiles for the said puzzle.
+ *
+ *  Only the creator can create scenes.
+ *
+ *  Only the minter can mint tiles and tokens.
  */
 contract ESTile is BaseERC1155
 {
   using SafeMath for uint256;
-
-  uint256 seed;
-
-  EscapeToken internal escapeTokenContract;
-  NamingContract internal namingContract;
-
-  // Keep track of each token type that we allocate - these are the tile tokens
-  // and the full puzzle tokens. 
-  mapping (uint256 => uint256) public tokenCounts;
-
-  // For each scene, we have N puzzles with H*W puzzle tiles - keep track of em.
-  mapping (uint256 => mapping( uint256 => uint256[])) public sceneToPuzzleTileTokens;
-
-  // Finally, each scene and each puzzle in that scene has a unique token to 
-  // signify burning the tiles and owning the finished puzzle. This also means
-  // that the creator of this token would have earned any possibly credits left
-  // in this scenes reward pool.
-  mapping (uint256 => mapping( uint256 => uint256)) internal sceneToPuzzleToken;
 
   /*
    *  Scenes are N number of pictures that have been split into a jigsaw. 
@@ -45,20 +37,51 @@ contract ESTile is BaseERC1155
     // The number of purchaseable vs unlockable puzzles.
     uint256 numPuzzles;
     
-    // These are the dimensions of all tiles in this scene.
-    uint256 tilesWide;
-    uint256 tilesHigh;
+    // Number of shards in a single puzzle.
+    uint256 numTilesPerPuzzle;
 
     uint256 puzzleRewardTotal; // Total ESCAPE credits mintable for this scene.
     uint256 puzzleRewardRate;  // Rate at which each puzzle will drain the total 5 => .05% => 5/10000
 
     uint256 startToken;
-    uint256 numTiles;
   }
+  
+  /*
+   *  Seed so the owner can update randomness once in a while. Eventually this
+   *  can be replaced with an oracle.
+   */
+  uint256 seed;
 
-  uint256 internal sceneCount;
+  /*
+   *  Deployed contracts that we interact with. 
+   *
+   *  The EscapeToken is needed so we can issue ESCAPE credits based on the 
+   *  scene bonus pool (if applicable).
+   *
+   *  The NamingContract is needed to rename finished puzzles that the owner has
+   *  solved (and owns the finished puzzle tile for).
+   */
+  EscapeToken internal escapeTokenContract;
+  NamingContract internal namingContract;
+
+  /*
+   *  For each scene, we have N puzzles with H*W puzzle tiles.
+   */
+  mapping (uint256 => mapping( uint256 => uint256[])) public sceneToPuzzleTileTokens;
+
+  /*
+   *  Additoinally, each scene and each puzzle in that scene has a unique token 
+   *  to signify burning the tiles and owning the finished puzzle. This also 
+   *  means that the creator of this token would have earned any possibly 
+   *  credits left in this scenes reward pool.
+   */
+  mapping (uint256 => mapping( uint256 => uint256)) internal sceneToPuzzleToken;
+
+  uint256 public sceneCount;
   mapping (uint256 => Scene) internal scenes;
   mapping (uint256 => uint256) internal sceneRewardLeft;
+  
+  //////////////////////////////////////////////////////////////////////////////
 
   /*
    *  Constructor!
@@ -70,8 +93,8 @@ contract ESTile is BaseERC1155
     address _namingContractAddress
   )
     BaseERC1155(
-      "EtherScape puzzle tile",
-      "ESCtile",
+      "EtherScape shards",
+      "SHARD",
       _uri,
       _proxyRegistryAddress
     )
@@ -82,10 +105,7 @@ contract ESTile is BaseERC1155
       namingContract = NamingContract(_namingContractAddress);
   }
 
-
-/**
- * Only Token Creator Functions
- **/
+  //////////////////////////////////////////////////////////////////////////////
 
   /*
    *  Assign a scene worth of tokens, this will be based on the sceneId, the
@@ -94,31 +114,28 @@ contract ESTile is BaseERC1155
   function createScene(
     uint256 sceneId,
     uint256 numPuzzles,
-    uint256 puzzleHeight,
-    uint256 puzzleWidth,
+    uint256 numTilesPerPuzzle,
     uint256 puzzleRewardTotal,
     uint256 puzzleRewardRate
   )
     external
   {
     require(hasRole(CREATOR_ROLE, _msgSender()), "not a creator");
-    require(numPuzzles > 0 && puzzleHeight > 0 && puzzleWidth > 0, "bad dims");
+    require(numPuzzles > 0 && numTilesPerPuzzle > 0, "bad dims");
     require(scenes[sceneId].exists == false, "scene already here");
 
     Scene storage s = scenes[sceneId];
     s.exists = true;
     s.numPuzzles = numPuzzles;
-    s.tilesHigh = puzzleHeight;
-    s.tilesWide = puzzleWidth;
-    s.puzzleRewardTotal = puzzleRewardTotal;
-    s.puzzleRewardRate = puzzleRewardRate;
+    s.numTilesPerPuzzle = numTilesPerPuzzle;
     
     // Setup the total scene reward for this scene that is available.
+    s.puzzleRewardTotal = puzzleRewardTotal;
+    s.puzzleRewardRate = puzzleRewardRate;
     sceneRewardLeft[sceneId] = puzzleRewardTotal;
-
+    
     uint256 tid = maxTokenID;
     s.startToken = tid;
-    s.numTiles = numPuzzles.mul(puzzleWidth.mul(puzzleHeight));
 
     /*
      *  Create tokens to represent each puzzle in this scene. 
@@ -128,11 +145,9 @@ contract ESTile is BaseERC1155
      *  of each that make up the image).
      */
     for (uint256 _p = 0; _p < numPuzzles; _p++) {
-      for (uint256 _h = 0; _h < puzzleHeight; _h++) {
-        for (uint256 _w = 0; _w < puzzleWidth; _w++) {
-          sceneToPuzzleTileTokens[sceneId][_p].push(tid);
-          tid = tid.add(1);
-        }
+      for (uint256 _i = 0; _i < numTilesPerPuzzle; _i++) {
+        sceneToPuzzleTileTokens[sceneId][_p].push(tid);
+        tid = tid.add(1);
       }
     }
     for (uint256 _p = 0; _p < numPuzzles; _p++) {
@@ -145,86 +160,93 @@ contract ESTile is BaseERC1155
     sceneCount = sceneCount.add(1);
   }
 
-  function numScenes() view external returns (uint256) {
-      return sceneCount;
+  //////////////////////////////////////////////////////////////////////////////
+
+  /*
+   *  Public and inter-contract queries for scene desc info.
+   */
+  function sceneExists(uint256 sceneId) view external returns (bool) { return (scenes[sceneId].exists == true); }
+  function scenePuzzles(uint256 sceneId) view external returns (uint256) { return scenes[sceneId].numPuzzles; }
+  function sceneTiles(uint256 sceneId) view external returns (uint256) { return scenes[sceneId].numTilesPerPuzzle; }
+  function tokenRangeForScene(uint256 sceneId) view public returns (uint256, uint256, uint256) {
+    // Tokens start at (1 -> puzzles in scene * tiles per puzzle) +  puzzles in scene.
+    return (scenes[sceneId].startToken, scenes[sceneId].numTilesPerPuzzle, scenes[sceneId].numPuzzles);
   }
-  function scenePuzzles(uint256 sceneId) view external returns (uint256) {
-    return scenes[sceneId].numPuzzles;
+  
+  function getScenePuzzleInfo(uint256 sceneId, uint256 puzzleId) public view returns (uint256, string memory, address) {
+    return namingContract.tokenNameInfo(sceneToPuzzleToken[sceneId][puzzleId]);
   }
-  function sceneTiles(uint256 sceneId) view external returns (uint256) {
-    return scenes[sceneId].tilesWide.mul(scenes[sceneId].tilesHigh);
-  }
-  function sceneExists(uint256 sceneId) view external returns (bool) {
-    return (scenes[sceneId].exists == true);
-  }
+  
   function puzzleRewardInfo(uint256 sceneId) view external returns (uint256, uint256, uint256) {
     return (scenes[sceneId].puzzleRewardTotal, scenes[sceneId].puzzleRewardRate, sceneRewardLeft[sceneId]);
   }
 
-/*
- *  Public.
- */
-//   function randomSceneTile(uint256 _sceneId) external returns (uint256) {
-//     uint pidx = _random().mod(scenes[_sceneId].numPuzzles);
-//     uint tidx = _random().mod(scenes[_sceneId].tilesHigh.mul(scenes[_sceneId].tilesWide));
-//     return sceneToPuzzleTileTokens[_sceneId][pidx][tidx];
-//   }
+  //////////////////////////////////////////////////////////////////////////////
 
-
-  function tokenRangeForScene(uint256 sceneId) view public returns (uint256, uint256, uint256) {
-    // Tokens start at (1 -> puzzles in scene * tiles per puzzle) +  puzzles in scene.
-    return (scenes[sceneId].startToken, scenes[sceneId].numTiles, scenes[sceneId].numPuzzles);
-  }
+  /*
+   *  User - contract interaction.
+   */
 
   /*
    *  For a given scene, and puzzle - checks that the sender owns at-least one 
    *  each of the tile tokens that make up the puzzle. If so the sender burns 
-   *  the tokens, and two items are awarded to the sender:
-   *    1. A completed token for the scene / puzzle
-   *    2. A randomly choosen reward pack potentially of a limited scene
-   *    The second reward might have to be figured out by the TilePack. In this
-   *    case the tile pack would need to be the one that `redeemPuzzle`s.
+   *  the tokens, and earns ESC and the completed token for the puzzle.
    */
-  function redeemPuzzle(uint256 sceneId, uint256 puzzleId) external returns (uint256) {
+  function redeemPuzzle(
+    uint256 sceneId,
+    uint256 puzzleId
+  ) 
+    external 
+    returns (uint256) 
+  {
     require(scenes[sceneId].exists == true, "scene does not exist");
     require(puzzleId < scenes[sceneId].numPuzzles, "invalid puzzle requested");
     
     uint256 puzzleTokenId = sceneToPuzzleToken[sceneId][puzzleId];
     require(puzzleTokenId != 0, "invalid puzzle token");
     
-    uint256 tilesPerPuzzle = scenes[sceneId].tilesHigh.mul(scenes[sceneId].tilesWide);
+    uint256 tilesPerPuzzle = scenes[sceneId].numTilesPerPuzzle;
     for (uint256 i = 0; i < tilesPerPuzzle; i++) {
         if (balanceOf(msg.sender, sceneToPuzzleTileTokens[sceneId][puzzleId][i]) <= 0) {
             revert("do not have all puzzle tokens");
         }
     }
     for (uint256 i = 0; i < tilesPerPuzzle; i++) {
-        _burn(msg.sender, sceneToPuzzleTileTokens[sceneId][puzzleId][i], 1);
+        uint256 tid = sceneToPuzzleTileTokens[sceneId][puzzleId][i];
+        totalSupply[tid] = totalSupply[tid].sub(1);
+        _burn(msg.sender, tid, 1);
     }
     
     // Figure out the reward (full image token) for this pictureId and award it
     // the the sender who just burned all their puzzle tokens!
-    _mint(msg.sender, puzzleTokenId, 1, "");
+    mint(msg.sender, puzzleTokenId, 1, "");
 
     // Mint additional ESCAPE tokens for the puzzle solver. The reward that the 
     // solver gets is the `left * (rate / 10000)` of the pool. This can be per
     // scene - and can be set to something like 5% (500) for example.
     if (sceneRewardLeft[sceneId] > 0) {
-      uint256 amt = sceneRewardLeft[sceneId].mul(500).div(10000);
+      uint256 amt = sceneRewardLeft[sceneId].mul(scenes[sceneId].puzzleRewardRate).div(10000);
       sceneRewardLeft[sceneId] = sceneRewardLeft[sceneId].sub(amt);
       escapeTokenContract.mintForAccount(msg.sender, amt);
     }
   }
-
-  function nameScenePuzzle(uint256 sceneId, uint256 puzzleId, string calldata name) external {
+  
+  /*
+   *  Name a puzzle in a scene using the NamingContract (which has no idea about
+   *  scenes or puzzles, just tokens). This will only invoke the naming contract
+   *  if we have the appropriate puzzle token (solved picture).
+   */
+  function nameScenePuzzle(
+    uint256 sceneId,
+    uint256 puzzleId,
+    string calldata name
+  )
+    external 
+  {
     require(scenes[sceneId].exists == true, "scene does not exist");
     require(puzzleId < scenes[sceneId].numPuzzles, "invalid puzzle requested");
     uint256 puzzleTokenId = sceneToPuzzleToken[sceneId][puzzleId];
     require(balanceOf(msg.sender, puzzleTokenId) > 0, "only rename owned puzzles");
     namingContract.nameTokenFor(msg.sender, puzzleTokenId, name);
-  }
-
-  function getScenePuzzleInfo(uint256 sceneId, uint256 puzzleId) public view returns (uint256, string memory, address) {
-    return namingContract.tokenNameInfo(sceneToPuzzleToken[sceneId][puzzleId]);
   }
 }

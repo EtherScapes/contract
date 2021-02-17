@@ -44,8 +44,7 @@ async function setupPostDeployment(network, escapeTokenAddress) {
     await tile.createScene(
       SCENE0, // sceneId, scene id 1
       5,      // numPuzzles, 5 puzzles
-      2,      // puzzleHeight, 2 tiles high
-      3,      // puzzleWidth, 3 tiles wide
+      6,      // numTilesPerPuzzle, 6 tiles 
       100000, // puzzleRewardTotal, 100k ESCAPEs per scene
       500     // puzzleRewardRate, 5%
     );

@@ -64,6 +64,10 @@ contract NamingContract is Ownable
   
   function tokenNameInfo(uint256 puzzleTokenId) view external returns (uint256, string memory, address) {
     require(puzzleTokenId != 0, "invalid token");
-    return (puzzleTokenNamingCost[puzzleTokenId], puzzleTokenToPuzzleName[puzzleTokenId], puzzleTokenNamedBy[puzzleTokenId]);
+    uint256 cost = puzzleTokenNamingCost[puzzleTokenId];
+    if (cost == 0) {
+        cost = SCENE_NAMING_START_COST;
+    }
+    return (cost, puzzleTokenToPuzzleName[puzzleTokenId], puzzleTokenNamedBy[puzzleTokenId]);
   }
 }

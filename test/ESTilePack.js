@@ -26,11 +26,9 @@ contract("ESTilePack", (accounts) => {
 
   const SCENE_0 = toBN(1);
   const SCENE_0_NumPuzzles = 5;
-  const SCENE_0_TilesHigh = 2;
-  const SCENE_0_TilesWide = 3;
+  const SCENE_0_TilesPerPuzzle = 6;
   const SCENE_0_RewardPool = 100000;
   const SCENE_0_DrainRate = 500; // 5
-  const SCENE_0_TilesPerPuzzle = SCENE_0_TilesHigh * SCENE_0_TilesWide;
   const SCENE_0_TileTokenCount = SCENE_0_NumPuzzles * SCENE_0_TilesPerPuzzle;
     
   const owner = accounts[0];
@@ -49,7 +47,7 @@ contract("ESTilePack", (accounts) => {
       console.log(" -- skipping scene0 creation for test");
     } else {
       await esTileInstance.createScene(SCENE_0, SCENE_0_NumPuzzles, 
-                                        SCENE_0_TilesHigh, SCENE_0_TilesWide, 
+                                        SCENE_0_TilesPerPuzzle,
                                         SCENE_0_RewardPool, SCENE_0_DrainRate, 
                                         { from: owner });
     }
