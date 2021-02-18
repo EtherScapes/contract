@@ -51,7 +51,7 @@ contract("ESTile", (accounts) => {
       CREATOR_ADMIN_ROLE,
       MINTER_ADMIN_ROLE;
  
-  const SCENE_0 = toBN(1);
+  const SCENE_0 = toBN(0);
   const SCENE_0_NumPuzzles = 5;
   const SCENE_0_TilesPerPuzzle = 6;
   const SCENE_0_TileTokenCount = SCENE_0_NumPuzzles * SCENE_0_TilesPerPuzzle;
@@ -67,6 +67,7 @@ contract("ESTile", (accounts) => {
   const userCreator = accounts[3];
   const userMinter = accounts[4];
   const userRedeemer = accounts[5];
+  const userTransferClaimer = accounts[6];
 
   before(async () => {
     instance = await ESTile.deployed();
@@ -122,8 +123,6 @@ contract("ESTile", (accounts) => {
           SCENE_0,
           SCENE_0_NumPuzzles,
           SCENE_0_TilesPerPuzzle,
-          SCENE_0_TilesWide,
-          100000, 500,    // 100k coins per scene, 5% drain per solve until 0.
           { from: userCreator }
         );
       }
@@ -200,27 +199,135 @@ contract("ESTile", (accounts) => {
 
       await instance.redeemPuzzle(SCENE_0, PUZZLE_0, { from: userRedeemer });
       for (let i = 0; i < SCENE_0_TilesPerPuzzle; i++) {
-        const tileTokenId = await instance.sceneToPuzzleTileTokens(SCENE_0, PUZZLE_0, i);
+        const tileTokenId = 1 + (0*SCENE_0_TilesPerPuzzle) + i;
         let balance = await instance.balanceOf(userRedeemer, tileTokenId);
         assert.ok(balance.eq(toBN(1)));
       }
 
       let balance = await instance.balanceOf(userRedeemer, p0_reward_token);
       assert.ok(balance.eq(toBN(1)));
+
       let escBalance = await escToken.balanceOf(userRedeemer);
-      assert.ok(escBalance.eq(toBN(5000)));
+      assert.ok(escBalance.eq(toBN(0)));
+
+      let claimBalance = await instance.getClaimInfo({from: userRedeemer});
+      assert.ok(claimBalance.eq(toBN(0)));
+      await advanceTimeAndBlock(24 * 60 * 60 * 100); // 100 days
+      claimBalance = await instance.getClaimInfo({from: userRedeemer});
+      assert.ok(claimBalance.eq(toBN(100)));
 
       await instance.redeemPuzzle(SCENE_0, PUZZLE_0, { from: userRedeemer });
       for (let i = 0; i < SCENE_0_TilesPerPuzzle; i++) {
-        const tileTokenId = await instance.sceneToPuzzleTileTokens(SCENE_0, PUZZLE_0, i);
+        const tileTokenId = 1 + (0*SCENE_0_TilesPerPuzzle) + i;
         let balance = await instance.balanceOf(userRedeemer, tileTokenId);
         assert.ok(balance.eq(toBN(0)));
       }
 
       balance = await instance.balanceOf(userRedeemer, p0_reward_token);
       assert.ok(balance.eq(toBN(2)));
+
       escBalance = await escToken.balanceOf(userRedeemer);
-      assert.ok(escBalance.eq(toBN(5000 + 4750)));
+      assert.ok(escBalance.eq(toBN(0)));
+
+      claimBalance = await instance.getClaimInfo({from: userRedeemer});
+      assert.ok(claimBalance.eq(toBN(100)));
+
+      await advanceTimeAndBlock(24 * 60 * 60 * 100); // 100 days
+
+      // Now we should have 100 + 200 points saved up.
+      claimBalance = await instance.getClaimInfo({from: userRedeemer});
+      assert.ok(claimBalance.eq(toBN(100 + 200)));
+
+      // Claim the 300 ESC.
+      await instance.claimReward({from: userRedeemer});
+      
+      // Check that it is cleared.
+      claimBalance = await instance.getClaimInfo({from: userRedeemer});
+      assert.ok(claimBalance.eq(toBN(0)));
+
+      // Check the ESC balance.
+      escBalance = await escToken.balanceOf(userRedeemer);
+      assert.ok(escBalance.eq(toBN(300)));
+    });
+
+    it('claims go away on transfer', async () => {
+      // Give the redeemer user all the above tiles and try to redeem.
+      for (let i = p0_start_token; i <= p0_end_token; i++) {
+        await instance.mint(userTransferClaimer, i, 2, "0x0", { from: userMinter });
+        let balance = await instance.balanceOf(userTransferClaimer, i);
+        assert.ok(balance.eq(toBN(2)));
+      }
+
+      await instance.redeemPuzzle(SCENE_0, PUZZLE_0, { from: userTransferClaimer });
+      for (let i = 0; i < SCENE_0_TilesPerPuzzle; i++) {
+        const tileTokenId = 1 + (0*SCENE_0_TilesPerPuzzle) + i;
+        let balance = await instance.balanceOf(userTransferClaimer, tileTokenId);
+        assert.ok(balance.eq(toBN(1)));
+      }
+
+      let balance = await instance.balanceOf(userTransferClaimer, p0_reward_token);
+      assert.ok(balance.eq(toBN(1)));
+
+      let escBalance = await escToken.balanceOf(userTransferClaimer);
+      assert.ok(escBalance.eq(toBN(0)));
+
+      let claimBalance = await instance.getClaimInfo({from: userTransferClaimer});
+      assert.ok(claimBalance.eq(toBN(0)));
+      await advanceTimeAndBlock(24 * 60 * 60 * 100); // 100 days
+      claimBalance = await instance.getClaimInfo({from: userTransferClaimer});
+      assert.ok(claimBalance.eq(toBN(100)));
+
+      await instance.redeemPuzzle(SCENE_0, PUZZLE_0, { from: userTransferClaimer });
+      for (let i = 0; i < SCENE_0_TilesPerPuzzle; i++) {
+        const tileTokenId = 1 + (0*SCENE_0_TilesPerPuzzle) + i;
+        let balance = await instance.balanceOf(userTransferClaimer, tileTokenId);
+        assert.ok(balance.eq(toBN(0)));
+      }
+
+      balance = await instance.balanceOf(userTransferClaimer, p0_reward_token);
+      assert.ok(balance.eq(toBN(2)));
+
+      escBalance = await escToken.balanceOf(userTransferClaimer);
+      assert.ok(escBalance.eq(toBN(0)));
+
+      // Claim balance should not have moved, we have not gone forward a day yet.
+      claimBalance = await instance.getClaimInfo({from: userTransferClaimer});
+      assert.ok(claimBalance.eq(toBN(100)));
+
+      let bt = await web3.eth.getBlock("latest");
+      console.log(bt);
+
+      await advanceTimeAndBlock(24 * 60 * 60 * 100); // 100 days
+
+      bt = await web3.eth.getBlock("latest");
+      console.log(bt);
+
+      // Now we should have 100 + 200 points saved up.
+      claimBalance = await instance.getClaimInfo({from: userTransferClaimer});
+      console.log(claimBalance.toNumber());
+      assert.ok(claimBalance.eq(toBN(100 + 200)));
+
+      // Transfer a token to userB - this should reduce our claim total.
+      await instance.safeTransferFrom(userTransferClaimer, userB, p0_reward_token, 
+                                      1, "0x0", { from: userTransferClaimer });
+      
+      bt = await web3.eth.getBlock("latest");
+      console.log(bt);
+
+      claimBalance = await instance.getClaimInfo({from: userTransferClaimer});
+      console.log(claimBalance.toNumber());
+      assert.ok(claimBalance.eq(toBN(200)));
+      
+      // Claim the 300 ESC.
+      await instance.claimReward({from: userTransferClaimer});
+      
+      // Check that it is cleared.
+      claimBalance = await instance.getClaimInfo({from: userTransferClaimer});
+      assert.ok(claimBalance.eq(toBN(0)));
+
+      // Check the ESC balance, can only claim 200.
+      escBalance = await escToken.balanceOf(userTransferClaimer);
+      assert.ok(escBalance.eq(toBN(200)));
     });
 
     it('owner of puzzle tile can rename token', async () => {

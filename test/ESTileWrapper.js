@@ -41,7 +41,6 @@ contract("ESTileWrapper", (accounts) => {
     } else {
       await esTileInstance.createScene(SCENE_0, SCENE_0_NumPuzzles, 
                                       SCENE_0_TilesPerPuzzle,
-                                      100000, 500, 
                                       { from: owner });
       
       await esTilePackInstance.createPack(SCENE_0, PACK_0_EscapeCost, 

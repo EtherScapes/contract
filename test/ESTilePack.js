@@ -24,11 +24,9 @@ contract("ESTilePack", (accounts) => {
       MINTER_ADMIN_ROLE,
       CARD_MINTER_ROLE;
 
-  const SCENE_0 = toBN(1);
+  const SCENE_0 = toBN(0);
   const SCENE_0_NumPuzzles = 5;
   const SCENE_0_TilesPerPuzzle = 6;
-  const SCENE_0_RewardPool = 100000;
-  const SCENE_0_DrainRate = 500; // 5
   const SCENE_0_TileTokenCount = SCENE_0_NumPuzzles * SCENE_0_TilesPerPuzzle;
     
   const owner = accounts[0];
@@ -48,7 +46,6 @@ contract("ESTilePack", (accounts) => {
     } else {
       await esTileInstance.createScene(SCENE_0, SCENE_0_NumPuzzles, 
                                         SCENE_0_TilesPerPuzzle,
-                                        SCENE_0_RewardPool, SCENE_0_DrainRate, 
                                         { from: owner });
     }
   });
@@ -100,7 +97,11 @@ contract("ESTilePack", (accounts) => {
       if (process.env.DEPLOY_SCENE0) {
         console.log(" -- skipping pack0 creation for test");
       } else {
-        await instance.createPack(SCENE_0, 500, 10, 1000, true, { from: userCreator });
+        const PACK0_TILES = 10;
+        const PACK0_ESC_COST = 50;
+        const PACK0_NUM_PACKS = 100;
+        await instance.createPack(SCENE_0, PACK0_ESC_COST, PACK0_TILES, 
+                                  PACK0_NUM_PACKS, true, { from: userCreator });
         let maxTokenID = await instance.maxTokenID();
         assert.equal(origMaxTokenID.toNumber() + 1, maxTokenID.toNumber());
       }
@@ -308,7 +309,7 @@ contract("ESTilePack", (accounts) => {
             'not enough packs left'
           );
         
-        await instance.mint(userA, boxTokenId, 100, "0x0", { from: userMinter });
+        await instance.mint(userA, boxTokenId, 10, "0x0", { from: userMinter });
       });
   });
 });

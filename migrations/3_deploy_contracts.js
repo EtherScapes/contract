@@ -44,16 +44,14 @@ async function setupPostDeployment(network, escapeTokenAddress) {
     await tile.createScene(
       SCENE0, // sceneId, scene id 1
       5,      // numPuzzles, 5 puzzles
-      6,      // numTilesPerPuzzle, 6 tiles 
-      100000, // puzzleRewardTotal, 100k ESCAPEs per scene
-      500     // puzzleRewardRate, 5%
+      6       // numTilesPerPuzzle, 6 tiles 
     );
     
     await tilePack.createPack(
       SCENE0, 
-      1000,     // 1000 escapes per pack
+      50,       // 1000 escapes per pack
       10,       // 10 tiles per pack
-      1200,     // 1000 packs for sale, 200 airdrop budget
+      200,      // 1000 packs for sale, 200 airdrop budget
       true      // can be purchased for 0.1 eth per pack ;
     );
   }
