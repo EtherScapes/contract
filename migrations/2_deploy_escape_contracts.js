@@ -1,6 +1,6 @@
 const EscapeToken = artifacts.require("EscapeToken");
-const ESTileWrapper = artifacts.require("ESTileWrapper");
-const NamingContract = artifacts.require("NamingContract");
+// const ESTileWrapper = artifacts.require("ESTileWrapper");
+// const NamingContract = artifacts.require("NamingContract");
 
 module.exports = function(deployer, network, accounts) {
   if (network.indexOf('mainnet') === -1) {
@@ -25,8 +25,8 @@ module.exports = function(deployer, network, accounts) {
       .then(() => {
         // console.log("Adding to the Uniswap pool")
         // return instance.addToUniswapPool();
-        console.log("Deploying Namer contract");
-        return deployer.deploy(NamingContract, instance.address);
+        // console.log("Deploying Namer contract");
+        // return deployer.deploy(NamingContract, instance.address);
       })
       /*.then(() => {
         console.log("Deploying the Wrapper OVERRIDE")

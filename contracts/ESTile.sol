@@ -45,13 +45,15 @@ contract ESTile is BaseERC1155
     // puzzle's first tile token and so on. The start token + (numPuzzles * 
     // numTilesPerPuzzle) will get us to the first completed puzzle token.
     uint256 startToken;
+
+    uint256 tilesLeft;
   }
 
   // Collect a way to keep track of all full puzzle token holders. This is a 
   // claim database which tracks the block at which a user has a claim for, this
   // is unique per completed puzzle token and per user.
   mapping (address => uint256[]) claims;
-  mapping (address => uint256) claimLength;
+  mapping (address => uint256) public claimLength;
   
   /*
    *  Seed so the owner can update randomness once in a while. Eventually this
@@ -69,11 +71,14 @@ contract ESTile is BaseERC1155
    *  solved (and owns the finished puzzle tile for).
    */
   EscapeToken internal escapeTokenContract;
-  NamingContract internal namingContract;
 
   uint256 public sceneCount;
   mapping (uint256 => Scene) internal scenes;
-  
+
+  // Debugging ... 
+  // uint256 constant REWARD_INTERVAL = 2 seconds;
+  uint256 constant REWARD_INTERVAL = 1 days;
+    
   //////////////////////////////////////////////////////////////////////////////
 
   /*
@@ -82,11 +87,10 @@ contract ESTile is BaseERC1155
   constructor(
     string memory _uri,
     address _proxyRegistryAddress,
-    address _escapeERC20Address,
-    address _namingContractAddress
+    address _escapeERC20Address
   )
     BaseERC1155(
-      "EtherScape shards",
+      "EtherScapes shards",
       "SHARD",
       _uri,
       _proxyRegistryAddress
@@ -95,7 +99,6 @@ contract ESTile is BaseERC1155
   {
       maxTokenID = 1;
       escapeTokenContract = EscapeToken(_escapeERC20Address);
-      namingContract = NamingContract(_namingContractAddress);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -115,19 +118,6 @@ contract ESTile is BaseERC1155
     require(numPuzzles > 0 && numTilesPerPuzzle > 0, "bad dims");
     require(scenes[sceneId].exists == false, "scene already here");
 
-    Scene storage s = scenes[sceneId];
-    s.exists = true;
-    s.numPuzzles = numPuzzles;
-    s.numTilesPerPuzzle = numTilesPerPuzzle;
-    
-    // Setup the total scene reward for this scene that is available.
-    // s.puzzleRewardTotal = puzzleRewardTotal;
-    // s.puzzleRewardRate = puzzleRewardRate;
-    // sceneRewardLeft[sceneId] = puzzleRewardTotal;
-    
-    uint256 tid = maxTokenID;
-    s.startToken = tid;
-
     /*
      *  Create tokens to represent each puzzle in this scene. 
      *
@@ -135,24 +125,21 @@ contract ESTile is BaseERC1155
      *  that can only be acquired by burning all the subsequent puzzle tiles (1
      *  of each that make up the image).
      */
+    uint256 tid = maxTokenID;
     uint256 numTokens = numTilesPerPuzzle
                           .add(1)
                           .mul(numPuzzles);
 
-    // for (uint256 _p = 0; _p < numPuzzles; _p++) {
-    //   for (uint256 _i = 0; _i < numTilesPerPuzzle; _i++) {
-    //     sceneToPuzzleTileTokens[sceneId][_p].push(tid);
-    //     tid = tid.add(1);
-    //   }
-    // }
-    // for (uint256 _p = 0; _p < numPuzzles; _p++) {
-    //   sceneToPuzzleToken[sceneId][_p] = tid;
-    //   tid = tid.add(1);
-    // }
+    Scene storage s = scenes[sceneId];
+    s.exists = true;
+    s.numPuzzles = numPuzzles;
+    s.numTilesPerPuzzle = numTilesPerPuzzle;
+    s.startToken = tid;
+    s.tilesLeft = 1000;
 
     // Update latest id with the last 
-    maxTokenID = maxTokenID.add(numTokens);
     sceneCount = sceneCount.add(1);
+    maxTokenID = maxTokenID.add(numTokens);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -161,11 +148,9 @@ contract ESTile is BaseERC1155
    *  Public and inter-contract queries for scene desc info.
    */
   function sceneExists(uint256 sceneId) view external returns (bool) { return (scenes[sceneId].exists == true); }
+  function sceneTilesLeft(uint256 sceneId) view external returns (uint256) { return (scenes[sceneId].tilesLeft); }
   function tokenRangeForScene(uint256 sceneId) view public returns (uint256, uint256, uint256) {
     return (scenes[sceneId].startToken, scenes[sceneId].numTilesPerPuzzle, scenes[sceneId].numPuzzles);
-  }
-  function getScenePuzzleInfo(uint256 sceneId, uint256 puzzleId) public view returns (uint256, string memory, address) {
-    return namingContract.tokenNameInfo(getPuzzleToken(sceneId, puzzleId));
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -186,15 +171,11 @@ contract ESTile is BaseERC1155
     external 
     returns (uint256) 
   {
-    require(scenes[sceneId].exists == true, "scene does not exist");
     uint256 puzzleTokenId = getPuzzleToken(sceneId, puzzleId);
     uint256 tileTokenStart = getTileToken(sceneId, puzzleId, 0);
     uint256 tilesPerPuzzle = scenes[sceneId].numTilesPerPuzzle;
     for (uint256 i = 0; i < tilesPerPuzzle; i++) {
       uint256 tid = tileTokenStart.add(i);
-      if (balanceOf(msg.sender, tileTokenStart.add(i)) <= 0) {
-        revert("do not have all puzzle tokens");
-      }
       totalSupply[tid] = totalSupply[tid].sub(1);
       _burn(msg.sender, tid, 1);
     }
@@ -205,18 +186,6 @@ contract ESTile is BaseERC1155
     // mintable by the redemption.
     totalSupply[puzzleTokenId] = totalSupply[puzzleTokenId].add(1);
     _mint(msg.sender, puzzleTokenId, 1, "");
-
-    // Push a claim with this block number for this token.
-    // claims[msg.sender].push(now);
-
-    // // Mint additional ESCAPE tokens for the puzzle solver. The reward that the 
-    // // solver gets is the `left * (rate / 10000)` of the pool. This can be per
-    // // scene - and can be set to something like 5% (500) for example.
-    // if (sceneRewardLeft[sceneId] > 0) {
-    //   uint256 amt = sceneRewardLeft[sceneId].mul(scenes[sceneId].puzzleRewardRate).div(10000);
-    //   sceneRewardLeft[sceneId] = sceneRewardLeft[sceneId].sub(amt);
-    //   escapeTokenContract.mintForAccount(msg.sender, amt);
-    // }
   }
 
   /*
@@ -233,7 +202,7 @@ contract ESTile is BaseERC1155
     uint256 total = 0;
     for (uint256 i = 0; i < claimLength[msg.sender]; i++) {
       uint256 reward = now.sub(claims[msg.sender][i])
-                          .div(1 days);
+                          .div(REWARD_INTERVAL);
       total = total.add(reward);
     }
     return total;
@@ -267,6 +236,24 @@ contract ESTile is BaseERC1155
     return false;
   }
 
+  function getSceneForToken
+  (
+    uint256 id
+  ) 
+    view
+    internal
+    returns (uint256) 
+  {
+    for (uint s = 0; s < sceneCount; s++) {
+      uint256 pts = scenes[s].startToken;
+      uint256 pte = pts
+                      .add(scenes[s].numPuzzles)
+                      .add(scenes[s].numPuzzles.mul(scenes[s].numTilesPerPuzzle));
+      if (id >= pts && id < pte) return s;
+    }
+    revert("bad scene");
+  }
+
   function _beforeTokenTransfer
   (
     address /*operator*/,
@@ -288,18 +275,26 @@ contract ESTile is BaseERC1155
         if (to != address(0)) {
           // New token minted, and its a puzzle token - add a claim for the 
           // count minted here.
+          uint256 claimIdx = claimLength[to];
           for (uint n = 0; n < amounts[i]; n++) {
-            if (claims[to].length > claimLength[to]) {
-              claims[to][claimLength[to]] = now;
+            if (claims[to].length > claimIdx) {
+              claims[to][claimIdx] = now;
             } else {
               claims[to].push(now);
             }
-            claimLength[to] = claimLength[to].add(1);
+            claimIdx = claimIdx.add(1);
           }
+          claimLength[to] = claimIdx;
         }
         if (from != address(0)) {
           // This is a burn or a transfer, remove claims.
           claimLength[from] = claimLength[from].sub(amounts[i]);
+        }
+      } else {
+        /* else this is a non puzzle token, these are limited by scene */
+        uint256 sid = getSceneForToken(ids[i]);
+        if (from == address(0)) {
+          scenes[sid].tilesLeft = scenes[sid].tilesLeft.sub(amounts[i]);
         }
       }
     }
@@ -326,7 +321,7 @@ contract ESTile is BaseERC1155
     uint256 sceneId,
     uint256 puzzleId
   )
-    internal 
+    public
     view
     returns (uint256) 
   {
@@ -335,22 +330,5 @@ contract ESTile is BaseERC1155
     return scenes[sceneId].startToken
             .add(puzzleId)
             .add(scenes[sceneId].numTilesPerPuzzle.mul(scenes[sceneId].numPuzzles));
-  }
-
-  /*
-   *  Name a puzzle in a scene using the NamingContract (which has no idea about
-   *  scenes or puzzles, just tokens). This will only invoke the naming contract
-   *  if we have the appropriate puzzle token (solved picture).
-   */
-  function nameScenePuzzle(
-    uint256 sceneId,
-    uint256 puzzleId,
-    string calldata name
-  )
-    external 
-  {
-    uint256 puzzleTokenId = getPuzzleToken(sceneId, puzzleId);
-    require(balanceOf(msg.sender, puzzleTokenId) > 0, "only rename owned puzzles");
-    namingContract.nameTokenFor(msg.sender, puzzleTokenId, name);
   }
 }

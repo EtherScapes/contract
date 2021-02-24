@@ -4,6 +4,7 @@ pragma solidity ^0.6.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./escape/EscapeToken.sol";
+import "./ESTile.sol";
 
 /**
  * @title NamingContract
@@ -14,6 +15,7 @@ contract NamingContract is Ownable
   using SafeMath for uint256;
 
   EscapeToken public escapeContractInstance;
+  ESTile public estileContract;
 
   uint256 constant SCENE_NAMING_START_COST = 50; 
   uint256 constant SCENE_NAMING_MULTIPLIER = 2; // 2x after each naming.
@@ -33,12 +35,14 @@ contract NamingContract is Ownable
    *  Constructor!
    */
   constructor(
-    address _escapeERC20Address
+    address _escapeERC20Address,
+    address _estileAddress
   )
     Ownable()
     public
   {
       escapeContractInstance = EscapeToken(_escapeERC20Address);
+      estileContract = ESTile(_estileAddress);
   }
 
 /*
@@ -48,21 +52,42 @@ contract NamingContract is Ownable
   /*
    *  Puzzle naming!
    */
-  function nameTokenFor(address sender, uint256 puzzleTokenId, string calldata name) external {
-    require(puzzleTokenId != 0, "invalid token");
+
+  /*
+   *  Name a puzzle in a scene using the NamingContract (which has no idea about
+   *  scenes or puzzles, just tokens). This will only invoke the naming contract
+   *  if we have the appropriate puzzle token (solved picture).
+   */
+  function nameScenePuzzle(
+    uint256 sceneId,
+    uint256 puzzleId,
+    string calldata name
+  )
+    external 
+  {
+    uint256 puzzleTokenId = estileContract.getPuzzleToken(sceneId, puzzleId);
+    require(estileContract.balanceOf(msg.sender, puzzleTokenId) > 0, "only rename owned puzzles");
     
     uint256 cost = puzzleTokenNamingCost[puzzleTokenId];
     if (cost == 0) {
-        cost = SCENE_NAMING_START_COST;
+      cost = SCENE_NAMING_START_COST;
     }
 
-    escapeContractInstance.burn(sender, cost);
+    escapeContractInstance.burn(msg.sender, cost);
     puzzleTokenToPuzzleName[puzzleTokenId] = name;
     puzzleTokenNamingCost[puzzleTokenId] = cost.mul(SCENE_NAMING_MULTIPLIER);
-    puzzleTokenNamedBy[puzzleTokenId] = sender;
+    puzzleTokenNamedBy[puzzleTokenId] = msg.sender;
   }
-  
-  function tokenNameInfo(uint256 puzzleTokenId) view external returns (uint256, string memory, address) {
+
+  function getScenePuzzleInfo(
+    uint256 sceneId, 
+    uint256 puzzleId
+  ) 
+    public 
+    view 
+    returns (uint256, string memory, address) 
+  {
+    uint256 puzzleTokenId = estileContract.getPuzzleToken(sceneId, puzzleId);
     require(puzzleTokenId != 0, "invalid token");
     uint256 cost = puzzleTokenNamingCost[puzzleTokenId];
     if (cost == 0) {
@@ -70,4 +95,5 @@ contract NamingContract is Ownable
     }
     return (cost, puzzleTokenToPuzzleName[puzzleTokenId], puzzleTokenNamedBy[puzzleTokenId]);
   }
+  
 }

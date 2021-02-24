@@ -28,7 +28,8 @@ async function setupPostDeployment(network, escapeTokenAddress) {
 
   // Grant the ESTilePack permission to mint ESTiles
   await tile.grantRole(MINTER_ROLE, tilePack.address);
-
+  await tile.grantRole(MINTER_ROLE, wrapper.address);
+  
   // Grant the ESTileWrapper permission to mint ESTilePack
   await tilePack.grantRole(MINTER_ROLE, wrapper.address);
 
@@ -39,10 +40,10 @@ async function setupPostDeployment(network, escapeTokenAddress) {
 
   if (process.env.DEPLOY_SCENE0) {
     console.log("Creating scene 1 and pack 1");
-    const SCENE0 = 1;
+    const SCENE0 = 0;
 
     await tile.createScene(
-      SCENE0, // sceneId, scene id 1
+      SCENE0, // sceneId, scene id 0
       5,      // numPuzzles, 5 puzzles
       6       // numTilesPerPuzzle, 6 tiles 
     );
@@ -70,7 +71,6 @@ module.exports = function(deployer, network) {
 
   // Escape contract
   let escapeTokenAddress;
-  let namingContractAddress;
   let escapeTokenMainnetAddress; // FIX THIS ONCE WE DEPLOY THE ESCAPE TOKEN
   let context = this;
 
@@ -88,17 +88,21 @@ module.exports = function(deployer, network) {
     }
   }
 
-  namingContractAddress = NamingContract.address;
   console.log("Deploying ESTile");
-  deployer.deploy(ESTile, config.ESTILE_API, proxyRegistryAddress, escapeTokenAddress, namingContractAddress)
+  deployer.deploy(ESTile, config.ESTILE_API, proxyRegistryAddress, escapeTokenAddress)
     .then((instance) => {
       console.log("ESTile addr = ", instance.address);
-      console.log("Deploying ESTilePack");
-      return deployer.deploy(ESTilePack, config.PACK_API, instance.address, proxyRegistryAddress)
-        .then((instanceBox) => {
-          console.log("Deploying ESTileWrapper");
-          return deployer.deploy(ESTileWrapper, escapeTokenAddress, instanceBox.address)
-            .then(setupPostDeployment.bind(this, network, escapeTokenAddress));
+      console.log("Deploying Naming Contract");
+      return deployer.deploy(NamingContract, escapeTokenAddress, instance.address)
+        .then((namingInstance) => {
+          console.log("NamingContract addr = ", namingInstance.address);
+          console.log("Deploying ESTilePack");
+          return deployer.deploy(ESTilePack, config.PACK_API, instance.address, proxyRegistryAddress)
+            .then((instanceBox) => {
+              console.log("Deploying ESTileWrapper");
+              return deployer.deploy(ESTileWrapper, escapeTokenAddress, instance.address, instanceBox.address)
+                .then(setupPostDeployment.bind(this, network, escapeTokenAddress));
+            });
         });
     });
 };

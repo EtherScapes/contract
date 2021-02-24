@@ -23,7 +23,7 @@ contract ESTilePack is BaseERC1155
     uint256 escapeCost; // Cost to buy pack in escape tokens, 0 = cannot buy.
     uint256 maxQuantity; // Max number of these packs sold.
     uint256 tilesPerPack; // Num tiles
-    bool isPurchaseable; // If we can buy this for 0.01 eth a pack.
+    bool isPurchaseable; // If we can buy this for 0.10 eth a pack.
     bool exists;
   }
 
@@ -63,8 +63,8 @@ contract ESTilePack is BaseERC1155
     address _proxyRegistryAddress
   )
     BaseERC1155(
-      "EtherScape tile pack",
-      "ESCpack",
+      "EtherScapes shard pack",
+      "SPAC",
       _uri,
       _proxyRegistryAddress
     )
@@ -170,7 +170,6 @@ contract ESTilePack is BaseERC1155
   )
     public
   {
-    // Operator check occurs here
     require(packs[_packTokenId].exists, "pack exists");
     require(
         _recipient == _msgSender() || isApprovedForAll(_recipient, _msgSender()),
@@ -182,7 +181,7 @@ contract ESTilePack is BaseERC1155
     totalSupply[_packTokenId] = totalSupply[_packTokenId].sub(_amount);
     
     // Iterate over the quantity of packs specified
-    uint256 sz = packs[_packTokenId].tilesPerPack.mul(_amount);
+    uint256 sz = packs[_packTokenId].tilesPerPack; //.mul(_amount);
     uint256[] memory tokenIdsToMint = new uint256[](sz);
     uint256[] memory quantitiesToMint = new uint256[](sz);
     
@@ -192,15 +191,12 @@ contract ESTilePack is BaseERC1155
     (tokenStart, numTiles, numPuzzles) = esTileContract.tokenRangeForScene(packs[_packTokenId].sceneId);
     uint256 numTilesInScene = numTiles.mul(numPuzzles);
     
-    for (uint256 i = 0; i < packs[_packTokenId].tilesPerPack; i++) {
-      quantitiesToMint[i] = 1;
-    }
     for (uint256 packId = 0; packId < _amount; packId++) {
       for (uint256 i = 0; i < packs[_packTokenId].tilesPerPack; i++) {
         // Keep track of token IDs we're minting and their quantities
         tokenIdsToMint[i] = tokenStart.add(_random().mod(numTilesInScene));
+        quantitiesToMint[i] = 1;
       }
-
       // Mint all of the tokens for this pack
       esTileContract.mintBatch(_recipient, tokenIdsToMint, quantitiesToMint, "");
     }
