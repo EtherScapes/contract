@@ -17,7 +17,7 @@ contract NamingContract is Ownable
   EscapeToken public escapeContractInstance;
   ESTile public estileContract;
 
-  uint256 constant SCENE_NAMING_START_COST = 50; 
+  uint256 constant SCENE_NAMING_START_COST = 5; 
   uint256 constant SCENE_NAMING_MULTIPLIER = 2; // 2x after each naming.
 
   // Each scene puzzle may also have a unique name (up to 32 bytes). Note that

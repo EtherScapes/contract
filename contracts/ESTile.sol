@@ -46,6 +46,7 @@ contract ESTile is BaseERC1155
     // numTilesPerPuzzle) will get us to the first completed puzzle token.
     uint256 startToken;
 
+    uint256 maxTiles;
     uint256 tilesLeft;
   }
 
@@ -55,12 +56,6 @@ contract ESTile is BaseERC1155
   mapping (address => uint256[]) claims;
   mapping (address => uint256) public claimLength;
   
-  /*
-   *  Seed so the owner can update randomness once in a while. Eventually this
-   *  can be replaced with an oracle.
-   */
-  uint256 seed;
-
   /*
    *  Deployed contracts that we interact with. 
    *
@@ -98,6 +93,7 @@ contract ESTile is BaseERC1155
     public
   {
       maxTokenID = 1;
+      sceneCount = 0;
       escapeTokenContract = EscapeToken(_escapeERC20Address);
   }
 
@@ -108,16 +104,15 @@ contract ESTile is BaseERC1155
    *  puzzleId and then width x height of tokens.
    */
   function createScene(
-    uint256 sceneId,
     uint256 numPuzzles,
-    uint256 numTilesPerPuzzle
+    uint256 numTilesPerPuzzle,
+    uint256 maxTilesForSale
   )
     external
   {
     require(hasRole(CREATOR_ROLE, _msgSender()), "not a creator");
     require(numPuzzles > 0 && numTilesPerPuzzle > 0, "bad dims");
-    require(scenes[sceneId].exists == false, "scene already here");
-
+    
     /*
      *  Create tokens to represent each puzzle in this scene. 
      *
@@ -125,21 +120,22 @@ contract ESTile is BaseERC1155
      *  that can only be acquired by burning all the subsequent puzzle tiles (1
      *  of each that make up the image).
      */
+    sceneCount = sceneCount.add(1);
+
+    uint256 sceneId = sceneCount;
     uint256 tid = maxTokenID;
     uint256 numTokens = numTilesPerPuzzle
                           .add(1)
                           .mul(numPuzzles);
+    maxTokenID = maxTokenID.add(numTokens);
 
     Scene storage s = scenes[sceneId];
     s.exists = true;
     s.numPuzzles = numPuzzles;
     s.numTilesPerPuzzle = numTilesPerPuzzle;
     s.startToken = tid;
-    s.tilesLeft = 1000;
-
-    // Update latest id with the last 
-    sceneCount = sceneCount.add(1);
-    maxTokenID = maxTokenID.add(numTokens);
+    s.tilesLeft = maxTilesForSale;
+    s.maxTiles = maxTilesForSale;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -227,7 +223,7 @@ contract ESTile is BaseERC1155
     internal
     returns (bool) 
   {
-    for (uint s = 0; s < sceneCount; s++) {
+    for (uint s = 1; s <= sceneCount; s++) {
       uint256 pts = scenes[s].startToken
                       .add(scenes[s].numPuzzles.mul(scenes[s].numTilesPerPuzzle));
       uint256 pte = pts.add(scenes[s].numPuzzles);
@@ -244,7 +240,7 @@ contract ESTile is BaseERC1155
     internal
     returns (uint256) 
   {
-    for (uint s = 0; s < sceneCount; s++) {
+    for (uint s = 1; s <= sceneCount; s++) {
       uint256 pts = scenes[s].startToken;
       uint256 pte = pts
                       .add(scenes[s].numPuzzles)

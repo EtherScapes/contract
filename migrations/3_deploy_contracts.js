@@ -1,5 +1,4 @@
 const ESTile = artifacts.require("ESTile");
-const ESTilePack = artifacts.require("ESTilePack");
 const ESTileWrapper = artifacts.require("ESTileWrapper");
 const NamingContract = artifacts.require("NamingContract");
 const EscapeToken = artifacts.require("EscapeToken");
@@ -10,13 +9,11 @@ const SETUP_PACKS = false;
 
 async function setupPostDeployment(network, escapeTokenAddress) {
   console.log("Setup inter-contract roles...");
-  const tilePack = await ESTilePack.deployed();
   const tile = await ESTile.deployed();
   const escape = await EscapeToken.deployed();
   const wrapper = await ESTileWrapper.deployed();
 
   console.log("ESTile        = ", tile.address);
-  console.log("ESTilePack    = ", tilePack.address);
   console.log("EscapeToken   = ", escape.address);
   console.log("ESTileWrapper = ", wrapper.address);
 
@@ -26,34 +23,19 @@ async function setupPostDeployment(network, escapeTokenAddress) {
   // MINTER_ROLE is the same keccak in both contracts
   const MINTER_ROLE = await tile.MINTER_ROLE();
 
-  // Grant the ESTilePack permission to mint ESTiles
-  await tile.grantRole(MINTER_ROLE, tilePack.address);
   await tile.grantRole(MINTER_ROLE, wrapper.address);
   
-  // Grant the ESTileWrapper permission to mint ESTilePack
-  await tilePack.grantRole(MINTER_ROLE, wrapper.address);
-
   if (network === 'rinkeby') {
     // Grant test minter on Rinkeby
-    await tilePack.grantRole(MINTER_ROLE, '0xD4F8fdD249ba41323880CefECEBca2Ab590D571F');
+    // await tilePack.grantRole(MINTER_ROLE, '0xD4F8fdD249ba41323880CefECEBca2Ab590D571F');
   }
 
   if (process.env.DEPLOY_SCENE0) {
-    console.log("Creating scene 1 and pack 1");
-    const SCENE0 = 0;
-
+    console.log("Creating scene 1, 5 puzzles, 6 tiles each, 1000 tiles for sale");
     await tile.createScene(
-      SCENE0, // sceneId, scene id 0
       5,      // numPuzzles, 5 puzzles
-      6       // numTilesPerPuzzle, 6 tiles 
-    );
-    
-    await tilePack.createPack(
-      SCENE0, 
-      50,       // 1000 escapes per pack
-      10,       // 10 tiles per pack
-      200,      // 1000 packs for sale, 200 airdrop budget
-      true      // can be purchased for 0.1 eth per pack ;
+      6,      // numTilesPerPuzzle, 6 tiles 
+      1000    // number of tiles for sale
     );
   }
 }
@@ -96,13 +78,9 @@ module.exports = function(deployer, network) {
       return deployer.deploy(NamingContract, escapeTokenAddress, instance.address)
         .then((namingInstance) => {
           console.log("NamingContract addr = ", namingInstance.address);
-          console.log("Deploying ESTilePack");
-          return deployer.deploy(ESTilePack, config.PACK_API, instance.address, proxyRegistryAddress)
-            .then((instanceBox) => {
-              console.log("Deploying ESTileWrapper");
-              return deployer.deploy(ESTileWrapper, escapeTokenAddress, instance.address, instanceBox.address)
-                .then(setupPostDeployment.bind(this, network, escapeTokenAddress));
-            });
+          console.log("Deploying ESTileWrapper");
+            return deployer.deploy(ESTileWrapper, escapeTokenAddress, instance.address)
+              .then(setupPostDeployment.bind(this, network, escapeTokenAddress));
         });
     });
 };

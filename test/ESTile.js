@@ -51,15 +51,14 @@ contract("ESTile", (accounts) => {
       CREATOR_ADMIN_ROLE,
       MINTER_ADMIN_ROLE;
  
-  const SCENE_0 = toBN(0);
-  const SCENE_0_NumPuzzles = 5;
-  const SCENE_0_TilesPerPuzzle = 6;
-  const SCENE_0_TileTokenCount = SCENE_0_NumPuzzles * SCENE_0_TilesPerPuzzle;
+  const SCENE_1_NumPuzzles = 5;
+  const SCENE_1_TilesPerPuzzle = 6;
+  const SCENE_1_TileTokenCount = SCENE_1_NumPuzzles * SCENE_1_TilesPerPuzzle;
 
-  const PUZZLE_0 = 0;
+  const PUZZLE_1 = 0;
   const p0_start_token = 1;
-  const p0_end_token = SCENE_0_TilesPerPuzzle;
-  const p0_reward_token = (SCENE_0_TilesPerPuzzle * SCENE_0_NumPuzzles) + 1;
+  const p0_end_token = SCENE_1_TilesPerPuzzle;
+  const p0_reward_token = (SCENE_1_TilesPerPuzzle * SCENE_1_NumPuzzles) + 1;
 
   const owner = accounts[0];
   const userA = accounts[1];
@@ -120,9 +119,8 @@ contract("ESTile", (accounts) => {
       } else {
         let origMaxTokenID = await instance.maxTokenID();
         await instance.createScene(
-          SCENE_0,
-          SCENE_0_NumPuzzles,
-          SCENE_0_TilesPerPuzzle,
+          SCENE_1_NumPuzzles,
+          SCENE_1_TilesPerPuzzle,
           { from: userCreator }
         );
       }
@@ -130,7 +128,7 @@ contract("ESTile", (accounts) => {
       // Scene should contain np * h * w + 1 tokens registered, each with
       // total supply of 0.
       let maxTokenID = await instance.maxTokenID();
-      assert.equal(maxTokenID.toNumber(), 1 + SCENE_0_NumPuzzles + (SCENE_0_NumPuzzles * SCENE_0_TilesPerPuzzle));
+      assert.equal(maxTokenID.toNumber(), 1 + SCENE_1_NumPuzzles + (SCENE_1_NumPuzzles * SCENE_1_TilesPerPuzzle));
 
       const supply = await instance.totalSupply(maxTokenID);
       assert.ok(supply.eq(toBN(0)));
@@ -146,7 +144,7 @@ contract("ESTile", (accounts) => {
 
   describe('#mint()', () => {
     it('minter should be able to mint one of the initial cards at random', async () => {
-      let randTokenId = Math.floor(Math.random() * SCENE_0_TileTokenCount);
+      let randTokenId = Math.floor(Math.random() * SCENE_1_TileTokenCount);
       let randMintAmount = Math.floor(Math.random() * 100);
 
       const supplyInitial = await instance.totalSupply(randTokenId);
@@ -197,9 +195,9 @@ contract("ESTile", (accounts) => {
         assert.ok(balance.eq(toBN(2)));
       }
 
-      await instance.redeemPuzzle(SCENE_0, PUZZLE_0, { from: userRedeemer });
-      for (let i = 0; i < SCENE_0_TilesPerPuzzle; i++) {
-        const tileTokenId = 1 + (0*SCENE_0_TilesPerPuzzle) + i;
+      await instance.redeemPuzzle(SCENE_1, PUZZLE_1, { from: userRedeemer });
+      for (let i = 0; i < SCENE_1_TilesPerPuzzle; i++) {
+        const tileTokenId = 1 + (0*SCENE_1_TilesPerPuzzle) + i;
         let balance = await instance.balanceOf(userRedeemer, tileTokenId);
         assert.ok(balance.eq(toBN(1)));
       }
@@ -216,9 +214,9 @@ contract("ESTile", (accounts) => {
       claimBalance = await instance.getClaimInfo({from: userRedeemer});
       assert.ok(claimBalance.eq(toBN(100)));
 
-      await instance.redeemPuzzle(SCENE_0, PUZZLE_0, { from: userRedeemer });
-      for (let i = 0; i < SCENE_0_TilesPerPuzzle; i++) {
-        const tileTokenId = 1 + (0*SCENE_0_TilesPerPuzzle) + i;
+      await instance.redeemPuzzle(SCENE_1, PUZZLE_1, { from: userRedeemer });
+      for (let i = 0; i < SCENE_1_TilesPerPuzzle; i++) {
+        const tileTokenId = 1 + (0*SCENE_1_TilesPerPuzzle) + i;
         let balance = await instance.balanceOf(userRedeemer, tileTokenId);
         assert.ok(balance.eq(toBN(0)));
       }
@@ -258,9 +256,9 @@ contract("ESTile", (accounts) => {
         assert.ok(balance.eq(toBN(2)));
       }
 
-      await instance.redeemPuzzle(SCENE_0, PUZZLE_0, { from: userTransferClaimer });
-      for (let i = 0; i < SCENE_0_TilesPerPuzzle; i++) {
-        const tileTokenId = 1 + (0*SCENE_0_TilesPerPuzzle) + i;
+      await instance.redeemPuzzle(SCENE_1, PUZZLE_1, { from: userTransferClaimer });
+      for (let i = 0; i < SCENE_1_TilesPerPuzzle; i++) {
+        const tileTokenId = 1 + (0*SCENE_1_TilesPerPuzzle) + i;
         let balance = await instance.balanceOf(userTransferClaimer, tileTokenId);
         assert.ok(balance.eq(toBN(1)));
       }
@@ -277,9 +275,9 @@ contract("ESTile", (accounts) => {
       claimBalance = await instance.getClaimInfo({from: userTransferClaimer});
       assert.ok(claimBalance.eq(toBN(100)));
 
-      await instance.redeemPuzzle(SCENE_0, PUZZLE_0, { from: userTransferClaimer });
-      for (let i = 0; i < SCENE_0_TilesPerPuzzle; i++) {
-        const tileTokenId = 1 + (0*SCENE_0_TilesPerPuzzle) + i;
+      await instance.redeemPuzzle(SCENE_1, PUZZLE_1, { from: userTransferClaimer });
+      for (let i = 0; i < SCENE_1_TilesPerPuzzle; i++) {
+        const tileTokenId = 1 + (0*SCENE_1_TilesPerPuzzle) + i;
         let balance = await instance.balanceOf(userTransferClaimer, tileTokenId);
         assert.ok(balance.eq(toBN(0)));
       }
@@ -332,18 +330,18 @@ contract("ESTile", (accounts) => {
 
     it('owner of puzzle tile can rename token', async () => {
       let escStartBalance = await escToken.balanceOf(userRedeemer);
-      await instance.nameScenePuzzle(SCENE_0, PUZZLE_0, "Hello world!", { from: userRedeemer });
+      await instance.nameScenePuzzle(SCENE_1, PUZZLE_1, "Hello world!", { from: userRedeemer });
       let escEndBalance = await escToken.balanceOf(userRedeemer);
       assert.ok(escEndBalance.eq(toBN(escStartBalance.toNumber() - 50)));
 
-      let result = await instance.getScenePuzzleInfo(SCENE_0, PUZZLE_0);
+      let result = await instance.getScenePuzzleInfo(SCENE_1, PUZZLE_1);
       assert.ok(result[0].eq(toBN(100)));
       assert.ok(result[1] == "Hello world!");
       assert.ok(result[2] == userRedeemer);
 
-      await instance.nameScenePuzzle(SCENE_0, PUZZLE_0, "Goodbye, world!", { from: userRedeemer });
+      await instance.nameScenePuzzle(SCENE_1, PUZZLE_1, "Goodbye, world!", { from: userRedeemer });
 
-      result = await instance.getScenePuzzleInfo(SCENE_0, PUZZLE_0);
+      result = await instance.getScenePuzzleInfo(SCENE_1, PUZZLE_1);
       assert.ok(result[0].eq(toBN(200)));
       assert.ok(result[1] == "Goodbye, world!");
       assert.ok(result[2] == userRedeemer);

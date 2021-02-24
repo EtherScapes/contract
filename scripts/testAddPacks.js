@@ -1,7 +1,6 @@
 'use strict';
 
 const ESTile = artifacts.require("ESTile");
-const ESTilePack = artifacts.require("ESTilePack");
 const ESTileWrapper = artifacts.require("ESTileWrapper");
 const NamingContract = artifacts.require("NamingContract");
 const EscapeToken = artifacts.require("EscapeToken");
@@ -15,13 +14,11 @@ async function main() {
     console.log("network type:"+newtworkType);
     console.log("network id:"+networkId);
 
-    const tilePack = await ESTilePack.deployed();
     const tile = await ESTile.deployed();
     const escape = await EscapeToken.deployed();
     const wrapper = await ESTileWrapper.deployed();
   
     console.log("ESTile        = ", tile.address);
-    console.log("ESTilePack    = ", tilePack.address);
     console.log("EscapeToken   = ", escape.address);
     console.log("ESTileWrapper = ", wrapper.address);
 

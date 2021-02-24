@@ -12,7 +12,6 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./escape/EscapeToken.sol";
 import "./ESTile.sol";
-import "./ESTilePack.sol";
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -28,23 +27,20 @@ contract ESTileWrapper is Ownable
 
   EscapeToken public escapeTokenContract;
   ESTile public esTileContract;
-  ESTilePack public esTilePackContract;
 
   //////////////////////////////////////////////////////////////////////////////
 
   uint256 seed;
 
   constructor(
-    address _tendAddress,
-    address _tileAddress,
-    address _boxAddress
+    address _escapeAddress,
+    address _estileAddress
   )
     Ownable()
     public
   {
-    escapeTokenContract = EscapeToken(_tendAddress);
-    esTileContract = ESTile(_tileAddress);
-    esTilePackContract = ESTilePack(_boxAddress);
+    escapeTokenContract = EscapeToken(_escapeAddress);
+    esTileContract = ESTile(_estileAddress);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -63,60 +59,27 @@ contract ESTileWrapper is Ownable
   }
   
   /*
-   *  Update contract address for the ESTilePack contract.
+   *  Update contract address for the ESTile contract.
    */
-  function setTilePackContractAddress(
+  function setESTileAddress(
     address _address
   )
     external
     onlyOwner
   {
     require(_address != address(0), "Can't set zero address");
-    esTilePackContract = ESTilePack(_address);
+    esTileContract = ESTile(_address);
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  function buyPacksForCredits(
-    uint256 _packId, 
-    uint256 count
-  ) 
-    public 
-  {
-    uint256 packCostInCredits;
-    bool canBuyForEth;
-    (packCostInCredits, canBuyForEth) = esTilePackContract.packCosts(_packId);
-    packCostInCredits = packCostInCredits.mul(count);
-    require(packCostInCredits > 0, "cannot cost 0 credits");
-    require(escapeTokenContract.balanceOf(_msgSender()) >= packCostInCredits, "not enough escape to burn");
-    escapeTokenContract.burn(_msgSender(), packCostInCredits);
-    esTilePackContract.mint(_msgSender(), _packId, count, "");
-  }
-
-  function buyPacksForETH(
-    uint256 _packId,
-    uint256 count
-  ) 
-    payable public 
-  {
-    uint256 packCostInCredits;
-    bool canBuyForEth;
-    (packCostInCredits, canBuyForEth) = esTilePackContract.packCosts(_packId);
-    require(canBuyForEth, "some things money can't buy");
-    uint256 packCost = count.mul(0.1 ether);
-    require(msg.value == packCost, "not enough eth");
-    esTilePackContract.mint(_msgSender(), _packId, count, "");
-  }
-
-  function buyTilesForETH(
+  function _mintTokensForScene(
+    address recipient,
     uint256 sceneId,
     uint256 count
   )
-    payable public 
+    internal 
   {
-    uint256 tilesCost = count.mul(0.01 ether);
-    require(msg.value >= tilesCost, "not enough eth");
-
     uint256 tokenStart;
     uint256 numTiles;
     uint256 numPuzzles;
@@ -131,7 +94,30 @@ contract ESTileWrapper is Ownable
       quantitiesToMint[i] = 1;
     }
 
-    esTileContract.mintBatch(msg.sender, tokenIdsToMint, quantitiesToMint, "");
+    esTileContract.mintBatch(recipient, tokenIdsToMint, quantitiesToMint, "");
+  }
+
+  function buyTilesForEscape(
+    uint256 sceneId,
+    uint256 count
+  )
+    public 
+  {
+    uint256 cost = count.mul(5 wei);
+    require(cost > 0);
+    escapeTokenContract.burn(_msgSender(), cost);
+    _mintTokensForScene(msg.sender, sceneId, count);
+  }
+
+  function buyTilesForETH(
+    uint256 sceneId,
+    uint256 count
+  )
+    payable public 
+  {
+    uint256 tilesCost = count.mul(0.01 ether);
+    require(msg.value >= tilesCost, "not enough eth");
+    _mintTokensForScene(msg.sender, sceneId, count);
   }
 
   //////////////////////////////////////////////////////////////////////////////
