@@ -1,4 +1,5 @@
 const ESTile = artifacts.require("../contracts/ESTile.sol");
+const NamingContract = artifacts.require("../contracts/NamingContract.sol");
 const EscapeToken = artifacts.require("../contracts/escape/EscapeToken.sol");
 
 const config = require('../lib/configV1.js');
@@ -42,7 +43,7 @@ advanceTimeAndBlock = async (time) => {
 }
 
 contract("ESTile", (accounts) => {
-  let instance, escToken;
+  let instance, escToken, namer;
 
   let tokenId = 0;
 
@@ -51,6 +52,7 @@ contract("ESTile", (accounts) => {
       CREATOR_ADMIN_ROLE,
       MINTER_ADMIN_ROLE;
  
+  const SCENE_1 = toBN(1);
   const SCENE_1_NumPuzzles = 5;
   const SCENE_1_TilesPerPuzzle = 6;
   const SCENE_1_TileTokenCount = SCENE_1_NumPuzzles * SCENE_1_TilesPerPuzzle;
@@ -71,6 +73,7 @@ contract("ESTile", (accounts) => {
   before(async () => {
     instance = await ESTile.deployed();
     escToken = await EscapeToken.deployed();
+    namer = await NamingContract.deployed();
   });
 
   describe('Access Control: Add creator and minter roles', () => {
@@ -121,6 +124,7 @@ contract("ESTile", (accounts) => {
         await instance.createScene(
           SCENE_1_NumPuzzles,
           SCENE_1_TilesPerPuzzle,
+          1000,
           { from: userCreator }
         );
       }
@@ -310,8 +314,6 @@ contract("ESTile", (accounts) => {
                                       1, "0x0", { from: userTransferClaimer });
       
       bt = await web3.eth.getBlock("latest");
-      console.log(bt);
-
       claimBalance = await instance.getClaimInfo({from: userTransferClaimer});
       console.log(claimBalance.toNumber());
       assert.ok(claimBalance.eq(toBN(200)));
@@ -329,20 +331,22 @@ contract("ESTile", (accounts) => {
     });
 
     it('owner of puzzle tile can rename token', async () => {
-      let escStartBalance = await escToken.balanceOf(userRedeemer);
-      await instance.nameScenePuzzle(SCENE_1, PUZZLE_1, "Hello world!", { from: userRedeemer });
-      let escEndBalance = await escToken.balanceOf(userRedeemer);
-      assert.ok(escEndBalance.eq(toBN(escStartBalance.toNumber() - 50)));
+    //   await escToken.mint(userRedeemer)
 
-      let result = await instance.getScenePuzzleInfo(SCENE_1, PUZZLE_1);
-      assert.ok(result[0].eq(toBN(100)));
+      let escStartBalance = await escToken.balanceOf(userRedeemer);
+      await namer.nameScenePuzzle(SCENE_1, PUZZLE_1, "Hello world!", { from: userRedeemer });
+      let escEndBalance = await escToken.balanceOf(userRedeemer);
+      assert.ok(escEndBalance.eq(toBN(escStartBalance.toNumber() - 5)));
+
+      let result = await namer.getScenePuzzleInfo(SCENE_1, PUZZLE_1);
+      assert.ok(result[0].eq(toBN(10)));
       assert.ok(result[1] == "Hello world!");
       assert.ok(result[2] == userRedeemer);
 
-      await instance.nameScenePuzzle(SCENE_1, PUZZLE_1, "Goodbye, world!", { from: userRedeemer });
+      await namer.nameScenePuzzle(SCENE_1, PUZZLE_1, "Goodbye, world!", { from: userRedeemer });
 
-      result = await instance.getScenePuzzleInfo(SCENE_1, PUZZLE_1);
-      assert.ok(result[0].eq(toBN(200)));
+      result = await namer.getScenePuzzleInfo(SCENE_1, PUZZLE_1);
+      assert.ok(result[0].eq(toBN(20)));
       assert.ok(result[1] == "Goodbye, world!");
       assert.ok(result[2] == userRedeemer);
     });
