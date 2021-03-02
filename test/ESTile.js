@@ -53,8 +53,8 @@ contract("ESTile", (accounts) => {
       MINTER_ADMIN_ROLE;
  
   const SCENE_1 = toBN(1);
-  const SCENE_1_NumPuzzles = 5;
-  const SCENE_1_TilesPerPuzzle = 6;
+  const SCENE_1_NumPuzzles = 3;
+  const SCENE_1_TilesPerPuzzle = 12;
   const SCENE_1_TileTokenCount = SCENE_1_NumPuzzles * SCENE_1_TilesPerPuzzle;
 
   const PUZZLE_1 = 0;
@@ -125,6 +125,8 @@ contract("ESTile", (accounts) => {
           SCENE_1_NumPuzzles,
           SCENE_1_TilesPerPuzzle,
           1000,
+          web3.utils.toWei("0.02", "ether"),
+          web3.utils.toWei("5", "wei"),
           { from: userCreator }
         );
       }

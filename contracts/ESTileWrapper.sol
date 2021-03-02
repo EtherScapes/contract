@@ -90,7 +90,7 @@ contract ESTileWrapper is Ownable
     uint256[] memory quantitiesToMint = new uint256[](count);
 
     for (uint256 i = 0; i < count; i++) {
-      tokenIdsToMint[i] = tokenStart.add(_random().mod(numTilesInScene));
+      tokenIdsToMint[i] = tokenStart.add(_random(recipient).mod(numTilesInScene));
       quantitiesToMint[i] = 1;
     }
 
@@ -103,9 +103,11 @@ contract ESTileWrapper is Ownable
   )
     public 
   {
-    uint256 cost = count.mul(5 wei);
-    require(cost > 0);
-    escapeTokenContract.burn(_msgSender(), cost);
+    uint256 ethCost;
+    uint256 escCost;
+    (ethCost, escCost) = esTileContract.sceneTileCosts(sceneId);
+    require(escCost > 0);
+    escapeTokenContract.burn(_msgSender(), escCost.mul(count));
     _mintTokensForScene(msg.sender, sceneId, count);
   }
 
@@ -115,9 +117,47 @@ contract ESTileWrapper is Ownable
   )
     payable public 
   {
-    uint256 tilesCost = count.mul(0.01 ether);
+    uint256 ethCost;
+    uint256 escCost;
+    (ethCost, escCost) = esTileContract.sceneTileCosts(sceneId);
+    require(ethCost > 0);
+
+    uint256 tilesCost = ethCost.mul(count);
     require(msg.value >= tilesCost, "not enough eth");
     _mintTokensForScene(msg.sender, sceneId, count);
+  }
+
+  function airdropTiles(
+    uint256 sceneId,
+    address[] memory tos,
+    uint256 count
+  )
+    public 
+    onlyOwner
+  {
+    require(count > 0);
+    uint256 tokenStart;
+    uint256 numTiles;
+    uint256 numPuzzles;
+    (tokenStart, numTiles, numPuzzles) = esTileContract.tokenRangeForScene(sceneId);
+    uint256 numTilesInScene = numTiles.mul(numPuzzles);
+    
+    uint256[] memory tokenIdsToMint = new uint256[](count);
+    uint256[] memory quantitiesToMint = new uint256[](count);
+    uint256 r = _random(msg.sender);
+    
+    for (uint256 ti = 0; ti < tos.length; ti++) {
+      for (uint256 i = 0; i < count; i++) {
+        tokenIdsToMint[i] = tokenStart.add(r.mod(numTilesInScene));
+        quantitiesToMint[i] = 1;
+        if (r > numTilesInScene) {
+          r = r.div(numTilesInScene);
+        } else {
+          r = _random(tos[ti]);
+        }
+      }
+      esTileContract.mintBatch(tos[ti], tokenIdsToMint, quantitiesToMint, "");
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -132,15 +172,19 @@ contract ESTileWrapper is Ownable
     owner.transfer(balance);
   }
 
-  function _random()
+  uint256 internal nonce;
+
+  function _random(address behalf)
     internal
     returns (uint256)
   {
+    nonce++;
     uint256 randomNumber = uint256(
       keccak256(
         abi.encodePacked(
           blockhash(block.number - 1),
-          msg.sender,
+          behalf,
+          nonce,
           seed
         )
       )
@@ -148,7 +192,7 @@ contract ESTileWrapper is Ownable
     seed = randomNumber;
     return randomNumber;
   }
-
+  
   function setSeed(
     uint256 _newSeed
   )

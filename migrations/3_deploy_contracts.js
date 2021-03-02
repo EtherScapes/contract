@@ -17,12 +17,12 @@ async function setupPostDeployment(network, escapeTokenAddress) {
   console.log("EscapeToken   = ", escape.address);
   console.log("ESTileWrapper = ", wrapper.address);
 
-  // The escape token needs to grant the tile contract minter rights.
+  // The escape token needs to grant the tile contract minter rights to award 
+  // escape to tile producers.
   await escape.setMinter(tile.address);
 
-  // MINTER_ROLE is the same keccak in both contracts
+  // MINTER_ROLE is the same keccak in both contracts.
   const MINTER_ROLE = await tile.MINTER_ROLE();
-
   await tile.grantRole(MINTER_ROLE, wrapper.address);
   
   if (network === 'rinkeby') {
@@ -31,12 +31,19 @@ async function setupPostDeployment(network, escapeTokenAddress) {
   }
 
   if (process.env.DEPLOY_SCENE0) {
-    console.log("Creating scene 1, 5 puzzles, 6 tiles each, 1000 tiles for sale");
+    console.log("Creating scene 1, 3 puzzles, 12 tiles each, 1200 tiles for sale");
     await tile.createScene(
-      5,      // numPuzzles, 5 puzzles
-      6,      // numTilesPerPuzzle, 6 tiles 
-      1000    // number of tiles for sale
+      3,       // numPuzzles, 5 puzzles
+      12,      // numTilesPerPuzzle, 6 tiles 
+      1200,    // number of tiles for sale
+      web3.utils.toWei("0.02", "ether"),
+      web3.utils.toWei("5", "wei")
     );
+
+    const info = await tile.tokenRangeForScene(1);
+    console.log(info[0].toString());
+    console.log(info[1].toString());
+    console.log(info[2].toString());
   }
 }
 

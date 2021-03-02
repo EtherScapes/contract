@@ -48,6 +48,9 @@ contract ESTile is BaseERC1155
 
     uint256 maxTiles;
     uint256 tilesLeft;
+
+    uint256 escapeCost;
+    uint256 ethCost;
   }
 
   // Collect a way to keep track of all full puzzle token holders. This is a 
@@ -106,12 +109,15 @@ contract ESTile is BaseERC1155
   function createScene(
     uint256 numPuzzles,
     uint256 numTilesPerPuzzle,
-    uint256 maxTilesForSale
+    uint256 maxTilesForSale,
+    uint256 ethCost,
+    uint256 escapeCost
   )
     external
   {
     require(hasRole(CREATOR_ROLE, _msgSender()), "not a creator");
     require(numPuzzles > 0 && numTilesPerPuzzle > 0, "bad dims");
+    require(escapeCost > 0, "bad cost");
     
     /*
      *  Create tokens to represent each puzzle in this scene. 
@@ -136,6 +142,8 @@ contract ESTile is BaseERC1155
     s.startToken = tid;
     s.tilesLeft = maxTilesForSale;
     s.maxTiles = maxTilesForSale;
+    s.ethCost = ethCost;
+    s.escapeCost = escapeCost;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -145,6 +153,9 @@ contract ESTile is BaseERC1155
    */
   function sceneExists(uint256 sceneId) view external returns (bool) { return (scenes[sceneId].exists == true); }
   function sceneTilesLeft(uint256 sceneId) view external returns (uint256) { return (scenes[sceneId].tilesLeft); }
+  function sceneTileCosts(uint256 sceneId) view external returns (uint256, uint256) { 
+    return (scenes[sceneId].ethCost, scenes[sceneId].escapeCost);
+  }
   function tokenRangeForScene(uint256 sceneId) view public returns (uint256, uint256, uint256) {
     return (scenes[sceneId].startToken, scenes[sceneId].numTilesPerPuzzle, scenes[sceneId].numPuzzles);
   }

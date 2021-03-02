@@ -13,15 +13,17 @@ contract("ESTileWrapper", (accounts) => {
     esTileInstance;
 
   const SCENE_1 = toBN(1);
-  const SCENE_1_NumPuzzles = 5;
-  const SCENE_1_TilesPerPuzzle = 6;
+  const SCENE_1_NumPuzzles = 3;
+  const SCENE_1_TilesPerPuzzle = 12;
   const SCENE_1_TileTokenCount = SCENE_1_NumPuzzles * SCENE_1_TilesPerPuzzle;
   
   const owner = accounts[0];
   const userA = accounts[1];
   const userB = accounts[2];
   const userC = accounts[3];
-  const uniswapPool = accounts[accounts.length-1];
+  const userD = accounts[4];
+  const userE = accounts[5];
+  const userF = accounts[6];
 
   before(async () => {
     instance = await ESTileWrapper.deployed();
@@ -32,11 +34,13 @@ contract("ESTileWrapper", (accounts) => {
     } else {
       await esTileInstance.createScene(SCENE_1_NumPuzzles, 
                                        SCENE_1_TilesPerPuzzle,
-                                       1000,
+                                       1200,
+                                       web3.utils.toWei("0.02", "ether"),
+                                       web3.utils.toWei("5", "wei"),
                                        { from: owner });
-      
+      const sceneCount = esTileInstance.sceneCount();
+      console.log("Scene count = ", sceneCount);      
     }
-      
 
     await escapeTokenInstance.mintForAccount(userA, 5000);
     await escapeTokenInstance.mintForAccount(userB, 50000000);
@@ -44,7 +48,81 @@ contract("ESTileWrapper", (accounts) => {
     assert.ok(balance.eq(toBN(5000)));
   });
 
-  describe('ESCAPE based pack purchase', () => {
+  describe("Test AirDrop", () => {
+    it("should airdrop to 3 users", 
+      async () => {
+        let numToDrop = 3;
+        // 18 users ... 3 times - 6 users
+        let users = [userA, userB, userC, userD, userE, userF, 
+                     userA, userB, userC, userD, userE, userF, 
+                     userA, userB, userC, userD, userE, userF];
+
+        await instance.airdropTiles(SCENE_1, users, numToDrop);
+
+        // Verify ...
+        for (var user of users) {
+          let counts = 0;
+          for (var tid = 1; tid <= 36; tid++) {
+            let bal = await esTileInstance.balanceOf(user, tid);
+            counts += bal.toNumber();
+            if (bal.toNumber() > 0) {
+            }
+          }
+          assert.ok(counts === 3 * numToDrop);
+        }
+      }
+    );
+
+    it("should airdrop to 3 users x2", 
+      async () => {
+        let numToDrop = 3;
+        // 18 users ... 3 times - 6 users
+        let users = [userA, userB, userC, userD, userE, userF, 
+                     userA, userB, userC, userD, userE, userF, 
+                     userA, userB, userC, userD, userE, userF];
+
+        await instance.airdropTiles(SCENE_1, users, numToDrop);
+
+        // Verify ...
+        for (var user of users) {
+          let counts = 0;
+          for (var tid = 1; tid <= 36; tid++) {
+            let bal = await esTileInstance.balanceOf(user, tid);
+            counts += bal.toNumber();
+            if (bal.toNumber() > 0) {
+            }
+          }
+          assert.ok(counts === 6 * numToDrop);
+        }
+      }
+    );
+
+    it("should airdrop to 3 users x3", 
+      async () => {
+        let numToDrop = 3;
+        // 18 users ... 3 times - 6 users
+        let users = [userA, userB, userC, userD, userE, userF, 
+                     userA, userB, userC, userD, userE, userF, 
+                     userA, userB, userC, userD, userE, userF];
+
+        await instance.airdropTiles(SCENE_1, users, numToDrop);
+
+        // Verify ...
+        for (var user of users) {
+          let counts = 0;
+          for (var tid = 1; tid <= 36; tid++) {
+            let bal = await esTileInstance.balanceOf(user, tid);
+            counts += bal.toNumber();
+            if (bal.toNumber() > 0) {
+            }
+          }
+          assert.ok(counts === 9 * numToDrop);
+        }
+      }
+    );
+  });
+
+  describe('ESCAPE based tile purchase', () => {
     // it("should redeem escape tokens for a pack", 
     //   async () => {
     //     await instance.buyPacksForCredits(PACK_1, 5, {from: userA});
@@ -79,7 +157,7 @@ contract("ESTileWrapper", (accounts) => {
     //   });
   });
 
-  describe('ETH based pack purchase', () => {
+  describe('ETH based tile purchase', () => {
     // it("should have no eth balance", 
     //   async () => {
     //     truffleAssert.fails(
@@ -112,5 +190,4 @@ contract("ESTileWrapper", (accounts) => {
     //     assert.ok(ob < nb - 0.01); // Fees
     //   })
   });
-
 });
