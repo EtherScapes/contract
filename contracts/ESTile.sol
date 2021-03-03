@@ -26,7 +26,7 @@ contract ESTile is BaseERC1155
 
   /*
    *  Scenes are N number of pictures that have been split into a jigsaw. 
-   *  Etherscapes are usually 6x4 tile puzzles and each scene will have N
+   *  Etherscapes are usually M tile puzzles and each scene will have N
    *  number of images within the scene - some unlockable via the packs for 
    *  sale, some unlockable only via solving puzzles (collect all N tiles in a
    *  single puzzle).
@@ -152,10 +152,7 @@ contract ESTile is BaseERC1155
    *  Public and inter-contract queries for scene desc info.
    */
   function sceneExists(uint256 sceneId) view external returns (bool) { return (scenes[sceneId].exists == true); }
-  function sceneTilesLeft(uint256 sceneId) view external returns (uint256) { return (scenes[sceneId].tilesLeft); }
-  function sceneTileCosts(uint256 sceneId) view external returns (uint256, uint256) { 
-    return (scenes[sceneId].ethCost, scenes[sceneId].escapeCost);
-  }
+  function sceneShardInfo(uint256 sceneId) view external returns (uint256, uint256, uint256) { return (scenes[sceneId].tilesLeft, scenes[sceneId].ethCost, scenes[sceneId].escapeCost); }
   function tokenRangeForScene(uint256 sceneId) view public returns (uint256, uint256, uint256) {
     return (scenes[sceneId].startToken, scenes[sceneId].numTilesPerPuzzle, scenes[sceneId].numPuzzles);
   }

@@ -8,16 +8,16 @@ import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
-//////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 import "./escape/EscapeToken.sol";
 import "./ESTile.sol";
 
-//////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 /*
- *  ESTileWrapper implements a contract which allows tile packs to be purcahsed
- *  for ESCAPE or ETH.
+ *  ESTileWrapper implements a contract which allows shards to be purcahsed for
+ *  ESCAPE or ETH.
  */
 contract ESTileWrapper is Ownable
 {
@@ -103,10 +103,12 @@ contract ESTileWrapper is Ownable
   )
     public 
   {
+    uint256 shardsLeft;
     uint256 ethCost;
     uint256 escCost;
-    (ethCost, escCost) = esTileContract.sceneTileCosts(sceneId);
+    (shardsLeft, ethCost, escCost) = esTileContract.sceneShardInfo(sceneId);
     require(escCost > 0);
+    require(shardsLeft >= count);
     escapeTokenContract.burn(_msgSender(), escCost.mul(count));
     _mintTokensForScene(msg.sender, sceneId, count);
   }
@@ -117,10 +119,12 @@ contract ESTileWrapper is Ownable
   )
     payable public 
   {
+    uint256 shardsLeft;
     uint256 ethCost;
     uint256 escCost;
-    (ethCost, escCost) = esTileContract.sceneTileCosts(sceneId);
+    (shardsLeft, ethCost, escCost) = esTileContract.sceneShardInfo(sceneId);
     require(ethCost > 0);
+    require(shardsLeft >= count);
 
     uint256 tilesCost = ethCost.mul(count);
     require(msg.value >= tilesCost, "not enough eth");
