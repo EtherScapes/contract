@@ -2,8 +2,9 @@
 
 Machine generated crypto generated jig-saw NFTs!
 
-## Rinkeby
+## mainnet
 
-ESTile        =  0x7a84D31B0f0376930eD808b8762f4859939d1383
-EscapeToken   =  0x0358d58f8f9Fe684E8F44188DF6BA0788B2310C8
-ESTileWrapper =  0x54222561aFa90eb67BEB94afc0A1ad59df8CDB6A
+ESTile        =  0x06eB48572a2ef9a3b230d69cA731330793B65bdC
+EscapeToken   =  0x7C040E4421A3701FB9863D8cfA4fF14d09502A1c
+ESTileWrapper =  0x82Cfc7c7f7B7fe4168521a9eeEb303831C4605f7
+

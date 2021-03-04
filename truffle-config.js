@@ -83,7 +83,8 @@ module.exports = {
         );
       },
       gas: 8000000,
-      gasPrice: 95000000000
+      gasPrice: 100000000000
+      //         96000000000
       //gasPrice:  20000000000
     }
   },

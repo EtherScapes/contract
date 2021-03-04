@@ -60,7 +60,7 @@ module.exports = function(deployer, network) {
 
   // Escape contract
   let escapeTokenAddress;
-  let escapeTokenMainnetAddress; // FIX THIS ONCE WE DEPLOY THE ESCAPE TOKEN
+  let escapeTokenMainnetAddress = "0x7C040E4421A3701FB9863D8cfA4fF14d09502A1c";
   let context = this;
 
   if (network.indexOf('mainnet') === -1) {
